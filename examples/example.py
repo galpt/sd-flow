@@ -24,7 +24,7 @@ def dummy_denoiser(x, sigma, **kwargs):
 
 
 def main():
-    print("sd-flow — Flow Scheduler for Stable Diffusion")
+    print("sd-flow — Flow Sampler for Stable Diffusion")
     print("=" * 50)
 
     # ── Create a flow-based sigma schedule ──────────────────────────────
@@ -33,7 +33,6 @@ def main():
         num_steps=10,
         sigma_min=0.002,
         sigma_max=80.0,
-        rho=7.0,
     )
     sigmas = schedule.generate_schedule()
     print(f"   Schedule shape: {list(sigmas.shape)}")

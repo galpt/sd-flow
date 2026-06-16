@@ -119,19 +119,18 @@ The rotating dispatch concept from scx_flow determines which TIER of task runs n
 3. Higher-budget steps receive Heun correction; lower-budget steps use faster Euler
 4. If any tier has zero steps (no step accumulated enough budget), the highest-budget step is demoted to that tier to ensure no sigma range is entirely starved of correction
 
-### Schedule Generation (Budget-Weighted Step Selection)
+### Schedule Generation
 
 ```
 Input: num_steps, sigma_min, sigma_max
 
-1. Generate dense linear reference (1000 points)
+1. Generate linear sigma spacing: linspace(sigma_max, sigma_min, num_steps)
 2. For each transition, compute budget refill:
      refill = (Δσ / σ_max) × (σ_cur / σ_max) × 4.0
      budget[i+1] = clamp(budget[i] + refill, B_min, B_max)
-3. Normalise budgets to [0, 1] as importance weights
-4. Sample num_steps from the cumulative importance distribution
-5. Compute per-step tier labels from budget accumulation
-6. Append trailing 0
+3. Classify each step into a tier by its budget
+4. Ensure every viable tier has at least 1 correction step
+5. Append trailing 0
 
 Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
          self.step_tiers: list[int]  (per-step tier indices)
@@ -143,7 +142,7 @@ Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
 
 | Property | Karras / Normal | Flow Schedule |
 |---|---|---|
-| Sigma spacing | Karras (polynomial) or Normal (linear) | Budget-weighted step selection |
+| Sigma spacing | Karras (polynomial) or Normal (linear) | Linear (same as Normal) |
 | Step behavior | Same solver for every step | Adaptive: PRIORITY steps get Heun, DEFICIT steps get Euler |
 | Control mechanism | Single parameter `ρ` (Karras) or none (Normal) | Budget thresholds + tier classification |
 | Fairness guarantee | None | Every tier gets at least 1 correction step |

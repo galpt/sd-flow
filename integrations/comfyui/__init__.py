@@ -1,8 +1,8 @@
 """
-sd-flow: Flow Scheduler custom node pack for ComfyUI.
+sd-flow: Flow Sampler custom node pack for ComfyUI.
 
 At load time, this module monkey-patches ComfyUI's sampler registry so that
-the ``flow`` sampler appears in EVERY built-in KSampler's dropdown list --
+the ``flow`` sampler appears in every built-in KSampler's sampler dropdown --
 no workflow changes needed.
 
 The ``flow`` sampler is a full adaptation of scx_flow's budget-driven

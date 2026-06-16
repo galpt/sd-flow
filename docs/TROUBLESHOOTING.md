@@ -72,7 +72,7 @@ Try:
 
 ### "Generation is slower than expected"
 
-The adaptive `flow` sampler uses fewer model evaluations than full Heun (about 29 vs 35 for 18 steps with default thresholds), so it can be faster depending on your tier distribution. Use the `euler` solver mode for maximum speed, `heun` for maximum quality. The `adapt` mode sits between Euler and Heun.
+The adaptive `flow` sampler uses fewer model evaluations than full Heun (the exact number depends on your tier threshold preset). Use the `euler` solver mode for maximum speed, `heun` for maximum quality. The `adapt` mode sits between Euler and Heun.
 
 ## Installation Issues
 
@@ -126,7 +126,7 @@ The sd-flow package has zero pip dependencies — only the integrations require 
 
 | Limitation | Workaround |
 |---|---|
-| No dedicated DDIM/DPM++ sampler in the flow package | Use the built-in DDIM/DPM++ samplers with the flow scheduler — the sigma schedule is compatible with any sampler |
+| No dedicated DDIM/DPM++ sampler in the flow package | Use the built-in DDIM/DPM++ samplers with `sampler=flow` — the adaptive solver works with any sampler choice |
 | No training-time support | v0.1 is inference-only |
 | No A1111 automated install | Manual pip install + custom script |
 | No precomputed schedule profiles | Generate schedules programmatically |

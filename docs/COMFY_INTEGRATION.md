@@ -91,7 +91,7 @@ At load time, the `__init__.py` monkey-patches ComfyUI's sampler registry:
 1. Injects `sample_flow` (plus `sample_flow_heun` and `sample_flow_euler`) into `comfy.k_diffusion.sampling`
 2. Appends `"flow"`, `"flow_heun"`, `"flow_euler"` to `comfy.samplers.KSAMPLER_NAMES` and `comfy.samplers.SAMPLER_NAMES`
 
-This means every built-in `KSampler` node's **sampler** dropdown includes `flow`/`flow_heun`/`flow_euler`, and its **scheduler** dropdown includes `flow` — no workflow modifications needed.
+This means every built-in `KSampler` node's **sampler** dropdown includes `flow`/`flow_heun`/`flow_euler` — no workflow modifications needed. Use `sampler=flow` with any standard scheduler (`normal`, `karras`, etc.).
 
 ### How the FlowSamplerNode Works
 

@@ -32,7 +32,7 @@ What happens:
 1. Detects your ComfyUI installation (checks common paths)
 2. Copies the custom node into `custom_nodes/sd-flow/`
 3. Installs the `sd_flow` Python package
-4. **Restart ComfyUI** — the `flow` sampler appears in every built-in `KSampler` dropdown (just select it), and the `FlowSigmaSchedule` + `FlowSampler` nodes appear for `SamplerCustomAdvanced` workflows
+4. **Restart ComfyUI** — the `flow` sampler appears in every built-in `KSampler`'s sampler dropdown (just select it), and the `FlowSigmaSchedule` + `FlowSampler` nodes appear for `SamplerCustomAdvanced` workflows
 
 You'll see something like:
 
@@ -48,7 +48,7 @@ You'll see something like:
    → /home/user/ComfyUI/custom_nodes/sd-flow/
 
 ✅ sd-flow injected successfully!
-   Restart ComfyUI — 'flow' appears in every KSampler dropdown,
+   Restart ComfyUI — 'flow' appears in every KSampler's sampler dropdown,
    plus FlowSigmaSchedule/FlowSampler nodes for custom workflows.
 ```
 
@@ -89,18 +89,18 @@ sd-flow is two things:
 
 **1. A sigma schedule generator** (`FlowSigmaSchedule`)
 
-Uses budget-weighted step selection: steps are sampled from the cumulative budget distribution, naturally concentrating them where the noise dynamics change fastest. A "budget" is tracked across sigma transitions: when sigma drops steeply (early steps), budget accumulates. When sigma changes slowly (late steps), budget drains. Based on their accumulated budget, timesteps are classified into 4 tiers — Priority, Normal, Low, Deficit — which determine the solver quality for that step.
+Uses linear sigma spacing with per-step budget-tier labels. A "budget" is tracked across sigma transitions: when sigma drops steeply (early steps), budget accumulates. When sigma changes slowly (late steps), budget drains. Based on their accumulated budget, timesteps are classified into 4 tiers — Priority, Normal, Low, Deficit — which determine the solver quality for that step.
 
 **2. An adaptive ODE solver** (`FlowSampler`)
 
-The solver quality per step is determined by the flow budget tier: high-budget steps (PRIORITY/NORMAL) get Heun's 2nd order correction, while low-budget steps (LOW/DEFICIT) use faster Euler. This mirrors scx_flow's variable time-slice allocation. The solver also appears as `flow` in every built-in KSampler dropdown — no manual wiring needed.
+The solver quality per step is determined by the flow budget tier: high-budget steps (PRIORITY/NORMAL) get Heun's 2nd order correction, while low-budget steps (LOW/DEFICIT) use faster Euler. This mirrors scx_flow's variable time-slice allocation. The solver also appears as `flow` in every built-in KSampler's sampler dropdown — no manual wiring needed.
 
 ### What's different from standard samplers?
 
 | Aspect | Euler / Heun / DDIM | sd-flow `flow` sampler |
 |--------|---------------------|------------------------|
 | Solver behavior | Same for every step | Adaptive per budget tier (PRIORITY→Heun, DEFICIT→Euler) |
-| Sigma schedule | Fixed formula (Karras, Normal, etc.) | Budget-weighted step selection (adaptive) |
+| Sigma schedule | Fixed formula (Karras, Normal, etc.) | Linear spacing + budget-tier labeling |
 | Control | Algorithm choice only | Budget thresholds + tier classification |
 | Starvation protection | None | Every tier gets ≥1 correction step |
 | Determinism | Yes | Yes |
@@ -136,7 +136,7 @@ sd-flow/
 
 ### "The nodes don't appear in ComfyUI"
 
-Run `bash integrations/comfyui/inject.sh` again, or check the [ComfyUI troubleshooting guide](docs/COMIFY_INTEGRATION.md). Most likely `pip install sd-flow` was missed.
+Run `bash integrations/comfyui/inject.sh` again, or check the [ComfyUI troubleshooting guide](docs/COMFY_INTEGRATION.md). Most likely `pip install sd-flow` was missed.
 
 ### "The images look different from what I expected"
 

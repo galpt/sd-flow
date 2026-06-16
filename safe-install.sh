@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INJECT_SCRIPT="$SCRIPT_DIR/integrations/comfyui/inject.sh"
 
 echo "+----------------------------------------------------+"
-echo "|          sd-flow — Flow Scheduler Install         |"
+echo "|           sd-flow — Flow Sampler Install          |"
 echo "+----------------------------------------------------+"
 echo ""
 
@@ -53,7 +53,7 @@ if [ -x "$INJECT_SCRIPT" ]; then
     if bash "$INJECT_SCRIPT"; then
         echo ""
         echo "✅ sd-flow installed successfully!"
-        echo "   Restart ComfyUI — 'flow' appears in every KSampler dropdown,"
+        echo "   Restart ComfyUI — 'flow' appears in every KSampler's sampler dropdown,"
         echo "   plus FlowSigmaSchedule/FlowSampler nodes for custom workflows."
         exit 0
     fi

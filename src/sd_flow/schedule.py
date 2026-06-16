@@ -2,11 +2,11 @@
 Flow-based sigma schedule generator.
 
 Adapts the scx_flow budget-and-tier concept to diffusion sampling.
-The schedule uses Karras-polynomial sigma spacing (the same formula
-as the standard Karras scheduler), producing a clean, monotonic
-sigma sequence without boundary artifacts.  Per-step tier indices
-are computed from budget accumulation and stored in ``step_tiers``
-for the adaptive sampler.
+The schedule uses linear sigma spacing (matching ComfyUI's built-in
+"Normal" scheduler) to produce a clean, monotonic sigma sequence
+without the noise-range concentration artifacts of polynomial
+schedules.  Per-step tier indices are computed from budget
+accumulation and stored in ``step_tiers`` for the adaptive sampler.
 """
 
 import torch
@@ -15,26 +15,17 @@ from .budget import BudgetAccumulator
 from .tiers import Tier, segment_sigma_range
 
 
-def _karras_in_range(n_steps: int, lo: float, hi: float, rho: float) -> torch.Tensor:
-    """Generate ``n_steps`` Karras-polynomial sigma values in ``(lo, hi]``."""
-    if n_steps <= 0:
-        return torch.tensor([], dtype=torch.float64)
-    ramp = torch.linspace(0, 1, n_steps)
-    lo_inv = lo ** (1 / rho)
-    hi_inv = hi ** (1 / rho)
-    return (hi_inv + ramp * (lo_inv - hi_inv)) ** rho
-
-
 class FlowSigmaSchedule:
     """
     A sigma schedule based on the flow budget algorithm.
 
-    Uses Karras-polynomial sigma spacing (the same formula as the
-    standard Karras scheduler) to produce a clean, monotonic sigma
-    sequence.  Per-step tier indices are computed from budget
-    accumulation and stored in ``self.step_tiers`` for the adaptive
-    sampler.  Each viable tier is guaranteed at least 1 correction
-    step so that no sigma range is entirely starved.
+    Uses linear sigma spacing (matching ComfyUI's "Normal" scheduler),
+    which avoids the low-noise concentration bias of polynomial schedules
+    (e.g. Karras with ρ=7) that can cause pixelation in low-step-count
+    regimes.  Per-step tier indices are computed from budget accumulation
+    and stored in ``self.step_tiers`` for the adaptive sampler.  Each
+    viable tier is guaranteed at least 1 correction step so that no
+    sigma range is entirely starved.
 
     The schedule is a ``torch.Tensor`` of shape ``(num_steps + 1,)``
     with values descending from ``sigma_max`` to ``0``, compatible
@@ -85,12 +76,14 @@ class FlowSigmaSchedule:
         """
         Generate the flow-based sigma schedule.
 
-        The schedule uses Karras-polynomial spacing to produce a clean,
-        monotonic sigma sequence.  Per-step tier indices are computed
-        from budget accumulation and stored in ``self.step_tiers``.
+        The schedule uses linear sigma spacing (matching ComfyUI's
+        "Normal" scheduler) to avoid the low-noise pixelation
+        artifacts of polynomial schedules.  Per-step tier indices
+        are computed from budget accumulation and stored in
+        ``self.step_tiers``.
 
-        Each viable sigma tier is guaranteed at least 1 correction step
-        so that no noise range is entirely starved.
+        Each viable sigma tier is guaranteed at least 1 correction
+        step so that no noise range is entirely starved.
 
         Returns:
             torch.Tensor of shape ``(num_steps + 1,)``:
@@ -100,17 +93,8 @@ class FlowSigmaSchedule:
         smin = self.sigma_min
         smax = self.sigma_max
 
-        # --- 1. base Karras schedule (num_steps points, no trailing 0) ---
-        ramp = torch.linspace(0, 1, num, dtype=torch.float32)
-        min_inv = smin ** (1 / self.rho)
-        max_inv = smax ** (1 / self.rho)
-        base = (max_inv + ramp * (min_inv - max_inv)) ** self.rho
-        base = base.to(torch.float32)
-
-        # Guarantee exact bounds
-        base[0] = smax
-        if num >= 2:
-            base[-1] = smin
+        # --- 1. base schedule — linear in sigma (like ComfyUI "Normal") ---
+        base = torch.linspace(smax, smin, num, dtype=torch.float32)
 
         # --- 2. append trailing 0 ---
         sigmas = torch.cat([base, torch.zeros(1)])

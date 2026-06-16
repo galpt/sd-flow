@@ -2,56 +2,7 @@
 
 import pytest
 import torch
-from sd_flow.schedule import FlowSigmaSchedule, _karras_in_range
-
-
-# ---------------------------------------------------------------------------
-# _karras_in_range (internal helper)
-# ---------------------------------------------------------------------------
-
-class TestKarrasInRange:
-    """_karras_in_range helper function."""
-
-    def test_returns_tensor(self):
-        result = _karras_in_range(10, 0.01, 80.0, 7.0)
-        assert isinstance(result, torch.Tensor)
-
-    def test_zero_steps(self):
-        result = _karras_in_range(0, 0.01, 80.0, 7.0)
-        assert isinstance(result, torch.Tensor)
-        assert result.numel() == 0
-
-    def test_negative_steps(self):
-        result = _karras_in_range(-5, 0.01, 80.0, 7.0)
-        assert result.numel() == 0
-
-    def test_correct_length(self):
-        result = _karras_in_range(18, 0.01, 80.0, 7.0)
-        assert result.shape == (18,)
-
-    def test_values_in_range(self):
-        n, lo, hi, rho = 100, 0.01, 80.0, 7.0
-        result = _karras_in_range(n, lo, hi, rho)
-        assert result.dtype == torch.float32
-        # All values should be within [lo, hi] (with floating-point tolerance)
-        assert (result >= lo - 1e-6).all()
-        assert (result <= hi + 1e-6).all()
-        # First value should be hi (approx, with float32 tolerance)
-        assert result[0].item() == pytest.approx(hi, abs=2e-4)
-        # Last value should be close to lo
-        assert result[-1].item() == pytest.approx(lo, rel=1e-3)
-
-    def test_monotonic(self):
-        n, lo, hi, rho = 50, 0.01, 80.0, 7.0
-        result = _karras_in_range(n, lo, hi, rho)
-        diffs = result[1:] - result[:-1]
-        assert (diffs <= 0).all()  # non-increasing
-
-    def test_different_rho(self):
-        rho = 3.0
-        n, lo, hi = 10, 0.01, 80.0
-        result = _karras_in_range(n, lo, hi, rho)
-        assert result.shape == (10,)
+from sd_flow.schedule import FlowSigmaSchedule
 
 
 # ---------------------------------------------------------------------------

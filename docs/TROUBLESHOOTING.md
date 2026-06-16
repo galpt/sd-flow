@@ -66,7 +66,7 @@ Try:
 All sigma values in the flow schedule are monotonically decreasing and mathematically valid. Artifacts are unlikely to come from the schedule itself.
 
 Try:
-1. Use the `heun` solver mode (all steps get Heun correction)
+1. Use the `heun` solver mode (all steps get Heun correction, set via the `solver` combo on the Flow Sampler node)
 2. Lower `s_churn` to 0 (deterministic)
 3. Ensure your model is compatible with the sigma range
 

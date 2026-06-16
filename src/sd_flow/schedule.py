@@ -196,8 +196,9 @@ class FlowSigmaSchedule:
 
         # -- 7. concatenate, sort descending, append 0 ---
         if not tier_groups:
-            # fallback — plain Karras + trailing 0
-            return torch.cat([base, torch.zeros(1)])
+            # fallback — plain Karras + trailing 0 (base already has it)
+            self.step_tiers = [3] * num  # all deficit as fallback
+            return base
 
         schedule = torch.cat(tier_groups)
         # Sort ensures monotonic decreasing
@@ -219,11 +220,13 @@ class FlowSigmaSchedule:
             pad = num + 1 - len(schedule)
             schedule = torch.cat([schedule, torch.zeros(pad)])
 
-        # --- 8. Store per-step tier info for solver adaptation ---
-        # Recompute tiers from the final schedule using the same budget
-        # accumulation that _compute_step_tiers uses in the sampler.
+        # --- 8. Compute per-step tier info for solver adaptation ---
+        # Budget accumulation uses the SAME BudgetAccumulator params as
+        # the schedule itself (budget_max, budget_min, tier_thresholds),
+        # ensuring _compute_step_tiers in sampler.py produces identical
+        # results when called with default params.
         self.step_tiers: list[int] = []
-        final_no_zero = schedule[:-1]  # exclude trailing 0
+        final_no_zero = schedule[:-1]
         tier_map = {'priority': 0, 'normal': 1, 'low': 2, 'deficit': 3}
         tier_acc = BudgetAccumulator(
             budget_max=self.budget_max,
@@ -235,7 +238,7 @@ class FlowSigmaSchedule:
             budget = tier_acc.accumulate(delta, final_no_zero[i], self.sigma_max)
             tier_str = tier_acc.classify_tier(budget)
             self.step_tiers.append(tier_map[tier_str])
-        # Last step classification (before sigma=0): use current budget
+        # Last step classification: use the accumulated budget
         self.step_tiers.append(tier_map[tier_acc.classify_tier()])
 
         return schedule

@@ -50,7 +50,8 @@ def _compute_step_tiers(sigmas: torch.Tensor, sigma_max: float) -> list[int]:
 
 @torch.no_grad()
 def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
-                s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
+                s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.,
+                step_tiers=None):
     """
     Flow ODE sampler — adaptive solver per step, determined by budget tier.
 
@@ -76,6 +77,10 @@ def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
         s_tmin: minimum sigma for churn
         s_tmax: maximum sigma for churn
         s_noise: noise multiplier for churn
+        step_tiers: optional pre-computed per-step tier indices. When
+            provided (e.g. from FlowSigmaSchedule.step_tiers), these are
+            used directly.  When None, they are recomputed from the sigma
+            tensor using default BudgetAccumulator parameters.
 
     Returns:
         denoised latent tensor
@@ -84,9 +89,14 @@ def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
     s_in = x.new_ones([x.shape[0]])
 
     # ── Compute per-step tiers ──────────────────────────────────────────
-    sigma_max_f = float(sigmas[0])
-    step_tiers = _compute_step_tiers(sigmas, sigma_max_f)
     num_steps = len(sigmas) - 1
+    if num_steps < 1:
+        return x  # no steps to process
+    if step_tiers is not None and len(step_tiers) == num_steps:
+        pass  # use pre-computed tiers (e.g. from FlowSigmaSchedule)
+    else:
+        sigma_max_f = float(sigmas[0])
+        step_tiers = _compute_step_tiers(sigmas, sigma_max_f)
 
     for i in trange(num_steps, disable=disable):
         sigma_cur = sigmas[i]
@@ -290,10 +300,13 @@ class FlowSampler:
 
         sigmas = schedule.generate_schedule()
         sampler_fn = SAMPLER_FN_MAP.get(self.solver, sample_flow)
-        return sampler_fn(
-            denoiser_fn, latents, sigmas,
-            s_churn=self.s_churn,
-            s_tmin=self.s_tmin,
-            s_tmax=self.s_tmax,
-            s_noise=self.s_noise,
-        )
+        kwargs = {
+            "s_churn": self.s_churn,
+            "s_tmin": self.s_tmin,
+            "s_tmax": self.s_tmax,
+            "s_noise": self.s_noise,
+        }
+        # Pass pre-computed tiers when using the adaptive flow sampler
+        if self.solver == "flow" or self.solver == "default":
+            kwargs["step_tiers"] = getattr(schedule, "step_tiers", None)
+        return sampler_fn(denoiser_fn, latents, sigmas, **kwargs)

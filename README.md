@@ -127,6 +127,9 @@ sd-flow/
 │   └── remove.sh                 Removal script
 ├── examples/example.py           Standalone usage example
 ├── tests/                        Unit tests (147 tests, all pass)
+├── tools/                        Utility scripts
+│   ├── find-comfyui.sh           ComfyUI path detection
+│   └── validate-install.sh       Post-install verification
 ├── safe-install.sh               One-command installer
 └── pyproject.toml                Zero runtime dependencies
 ```

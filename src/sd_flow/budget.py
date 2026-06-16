@@ -28,20 +28,29 @@ class BudgetAccumulator:
         self.budget_min = budget_min
         self.tier_thresholds = tier_thresholds  # (priority, normal, low)
 
+    # Internal scale factor so that cumulative budget naturally spans
+    # [0, BUDGET_MAX].  Derived from:
+    #   max_possible_refill_per_step = (sigma_max/sigma_max) * (sigma_max/sigma_max) * SCALE = SCALE
+    #   With SCALE=4 and typical sigma drops, each early step adds ~0.5–1.0
+    #   budget, letting cumulative budget reach BUDGET_MAX (~2.0) within
+    #   a handful of steps.
+    _REFILL_SCALE = 4.0
+
     def refill(self, delta_sigma, sigma_cur, sigma_max, weight=1.0):
         """
         Calculate budget refill from a sigma transition.
 
         Formula adapted from scx_flow:
-            refill = (delta_sigma / sigma_max) * (sigma_cur / sigma_max) * weight
+            refill = (delta_sigma / sigma_max) * (sigma_cur / sigma_max)
+                     * _REFILL_SCALE * weight
 
-        This means large drops at high sigma levels accumulate the most budget,
-        which matches the intuition that early denoising steps have the most
+        Large drops at high sigma levels accumulate the most budget,
+        matching the intuition that early denoising steps have the most
         "creative freedom".
 
         Args:
-            delta_sigma: change in sigma during this transition (always positive
-                         as sigma decreases)
+            delta_sigma: change in sigma during this transition (always
+                         positive as sigma decreases)
             sigma_cur: current sigma value before the transition
             sigma_max: maximum sigma for normalization
             weight: scaling factor for the refill amount
@@ -49,7 +58,12 @@ class BudgetAccumulator:
         Returns:
             refill amount (positive = budget increase)
         """
-        refill = (delta_sigma / sigma_max) * (sigma_cur / sigma_max) * weight
+        refill = (
+            (delta_sigma / sigma_max)
+            * (sigma_cur / sigma_max)
+            * self._REFILL_SCALE
+            * weight
+        )
         return refill
 
     def accumulate(self, delta_sigma, sigma_cur, sigma_max, weight=1.0):

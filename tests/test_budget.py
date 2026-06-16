@@ -36,23 +36,23 @@ class TestBudgetAccumulatorRefill:
 
     def test_refill_formula(self):
         acc = BudgetAccumulator()
-        # refill = (delta_sigma / sigma_max) * (sigma_cur / sigma_max) * weight
+        # refill = (delta_sigma / sigma_max) * (sigma_cur / sigma_max) * 4.0 * weight
         # delta_sigma=20.0, sigma_cur=80.0, sigma_max=80.0, weight=1.0
-        # (20.0 / 80.0) * (80.0 / 80.0) * 1.0 = 0.25 * 1.0 * 1.0 = 0.25
+        # (20.0 / 80.0) * (80.0 / 80.0) * 4.0 * 1.0 = 0.25 * 4.0 = 1.0
         r = acc.refill(20.0, 80.0, 80.0, weight=1.0)
-        assert r == pytest.approx(0.25)
+        assert r == pytest.approx(1.0)
 
     def test_refill_weight_half(self):
         acc = BudgetAccumulator()
-        # weight=0.5 → 0.25 * 0.5 = 0.125
+        # weight=0.5 → 1.0 * 0.5 = 0.5
         r = acc.refill(20.0, 80.0, 80.0, weight=0.5)
-        assert r == pytest.approx(0.125)
+        assert r == pytest.approx(0.5)
 
     def test_refill_weight_double(self):
         acc = BudgetAccumulator()
-        # weight=2.0 → 0.25 * 2.0 = 0.5
+        # weight=2.0 → 1.0 * 2.0 = 2.0
         r = acc.refill(20.0, 80.0, 80.0, weight=2.0)
-        assert r == pytest.approx(0.5)
+        assert r == pytest.approx(2.0)
 
     def test_refill_zero_delta(self):
         acc = BudgetAccumulator()
@@ -63,9 +63,9 @@ class TestBudgetAccumulatorRefill:
     def test_refill_small_delta(self):
         acc = BudgetAccumulator()
         # delta_sigma=0.5, sigma_cur=40.0, sigma_max=80.0
-        # (0.5 / 80.0) * (40.0 / 80.0) = 0.00625 * 0.5 = 0.003125
+        # (0.5 / 80.0) * (40.0 / 80.0) * 4.0 = 0.00625 * 0.5 * 4.0 = 0.0125
         r = acc.refill(0.5, 40.0, 80.0)
-        assert r == pytest.approx(0.003125)
+        assert r == pytest.approx(0.0125)
 
     def test_refill_weight_proportional(self):
         """Verify weight scales refill proportionally."""
@@ -82,22 +82,22 @@ class TestBudgetAccumulatorAccumulate:
         acc = BudgetAccumulator()
         assert acc.budget == 0.0
         new_budget = acc.accumulate(20.0, 80.0, 80.0)
-        # refill = 0.25, budget = 0 + 0.25 = 0.25
-        assert new_budget == pytest.approx(0.25)
-        assert acc.budget == pytest.approx(0.25)
+        # refill = 1.0, budget = 0 + 1.0 = 1.0
+        assert new_budget == pytest.approx(1.0)
+        assert acc.budget == pytest.approx(1.0)
 
     def test_accumulate_multiple(self):
         acc = BudgetAccumulator()
-        acc.accumulate(20.0, 80.0, 80.0)  # +0.25
-        acc.accumulate(20.0, 60.0, 80.0)  # (20/80)*(60/80)=0.25*0.75=0.1875
-        assert acc.budget == pytest.approx(0.25 + 0.1875)
+        acc.accumulate(20.0, 80.0, 80.0)  # +1.0
+        acc.accumulate(20.0, 60.0, 80.0)  # (20/80)*(60/80)*4 = 0.25*0.75*4 = 0.75
+        assert acc.budget == pytest.approx(1.0 + 0.75)
 
     def test_accumulate_passes_weight(self):
         acc = BudgetAccumulator()
         new_budget = acc.accumulate(20.0, 80.0, 80.0, weight=2.0)
-        # refill = 0.5
-        assert new_budget == pytest.approx(0.5)
-        assert acc.budget == pytest.approx(0.5)
+        # refill = 1.0 * 2.0 = 2.0
+        assert new_budget == pytest.approx(2.0)
+        assert acc.budget == pytest.approx(2.0)
 
 
 class TestBudgetAccumulatorClamping:
@@ -106,21 +106,15 @@ class TestBudgetAccumulatorClamping:
     def test_clamp_above_max(self):
         acc = BudgetAccumulator(budget_max=2.0, budget_min=-0.5)
         # Accumulate enough to exceed budget_max
-        # refill per call = (80/80)*(80/80)*1=1.0
-        acc.accumulate(80.0, 80.0, 80.0)  # +1.0
-        acc.accumulate(80.0, 80.0, 80.0)  # +1.0 -> 2.0
-        acc.accumulate(80.0, 80.0, 80.0)  # +1.0 should clamp to 2.0
+        # refill per call = (80/80)*(80/80)*4 = 4.0
+        acc.accumulate(80.0, 80.0, 80.0)  # +4.0 -> clamped to 2.0
         assert acc.budget == pytest.approx(2.0)
         assert acc.budget <= acc.budget_max
 
     def test_clamp_below_min(self):
         acc = BudgetAccumulator(budget_max=2.0, budget_min=-0.5)
         # Negative weight to simulate budget decrease
-        acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)  # -0.125
-        # Should still be -0.125, above budget_min
-        assert acc.budget == pytest.approx(-0.125)
-        # Hit the floor
-        acc.accumulate(50.0, 80.0, 80.0, weight=-1.0)  # -0.625 -> total -0.75, clamp to -0.5
+        acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)  # (10/80)*(80/80)*4*(-1) = -0.5
         assert acc.budget == pytest.approx(-0.5)
         assert acc.budget >= acc.budget_min
 
@@ -130,14 +124,11 @@ class TestBudgetAccumulatorClamping:
         acc.accumulate(10.0, 80.0, 80.0)  # +0.125 → clamp(1.125, 0, 1) = 1.0
         assert acc.budget == pytest.approx(1.0)
         # Accumulate with negative weight to drain budget
-        # weight=-1.0: refill = -0.125, budget = clamp(1.0 + -0.125, 0, 1) = 0.875
-        # Need multiple accumulations to reach budget_min
-        acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)  # -0.125 → 0.875
-        assert acc.budget == pytest.approx(0.875)
-        acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)  # -0.125 → 0.75
-        assert acc.budget == pytest.approx(0.75)
-        acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)  # -0.125 → 0.625
-        assert acc.budget == pytest.approx(0.625)
+        # weight=-1.0: refill = (10/80)*(80/80)*4*(-1) = -0.5, budget = clamp(1.0 + -0.5, 0, 1) = 0.5
+        acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)  # -0.5 → 0.5
+        assert acc.budget == pytest.approx(0.5)
+        acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)  # -0.5 → 0.0
+        assert acc.budget == pytest.approx(0.0)
         # Eventually hit the floor (budget_min=0.0)
         for _ in range(5):
             acc.accumulate(10.0, 80.0, 80.0, weight=-1.0)
@@ -175,8 +166,8 @@ class TestBudgetAccumulatorClassifyTier:
     def test_classify_uses_self_budget(self):
         acc = BudgetAccumulator()
         assert acc.classify_tier() == 'deficit'  # initial budget = 0.0
-        acc.accumulate(80.0, 80.0, 80.0)  # +1.0
-        assert acc.classify_tier() == 'normal'
+        acc.accumulate(80.0, 80.0, 80.0)  # +4.0, clamped to budget_max=2.0
+        assert acc.classify_tier() == 'priority'
 
     def test_custom_thresholds_classify(self):
         acc = BudgetAccumulator(tier_thresholds=(4.0, 3.0, 2.0))
@@ -191,26 +182,24 @@ class TestBudgetAccumulatorReset:
 
     def test_reset_sets_budget_to_zero(self):
         acc = BudgetAccumulator()
-        acc.accumulate(80.0, 80.0, 80.0)  # budget = 1.0
-        assert acc.budget == pytest.approx(1.0)
+        acc.accumulate(80.0, 80.0, 80.0)  # +4.0, clamped to 2.0
+        assert acc.budget == pytest.approx(2.0)
         acc.reset()
         assert acc.budget == 0.0
 
     def test_reset_from_clamped_value(self):
         acc = BudgetAccumulator(budget_max=2.0, budget_min=-0.5)
-        acc.accumulate(80.0, 80.0, 80.0)  # +1.0
-        acc.accumulate(80.0, 80.0, 80.0)  # +1.0 -> 2.0
-        acc.accumulate(80.0, 80.0, 80.0)  # +1.0 -> clamped at 2.0
+        acc.accumulate(80.0, 80.0, 80.0)  # +4.0, clamped to 2.0
         assert acc.budget == pytest.approx(2.0)
         acc.reset()
         assert acc.budget == 0.0
 
     def test_accumulate_after_reset(self):
         acc = BudgetAccumulator()
-        acc.accumulate(40.0, 80.0, 80.0)  # +0.5
+        acc.accumulate(40.0, 80.0, 80.0)  # +2.0
         acc.reset()
-        acc.accumulate(20.0, 80.0, 80.0)  # +0.25
-        assert acc.budget == pytest.approx(0.25)
+        acc.accumulate(20.0, 80.0, 80.0)  # +1.0
+        assert acc.budget == pytest.approx(1.0)
 
 
 class TestBudgetAccumulatorEdgeCases:
@@ -220,7 +209,8 @@ class TestBudgetAccumulatorEdgeCases:
         acc = BudgetAccumulator()
         # Negative delta_sigma (sigma increasing — unusual but handle gracefully)
         r = acc.refill(-10.0, 40.0, 80.0)
-        assert r == pytest.approx((-10.0 / 80.0) * (40.0 / 80.0))
+        expected = (-10.0 / 80.0) * (40.0 / 80.0) * 4.0
+        assert r == pytest.approx(expected)
 
     def test_zero_sigma_cur(self):
         acc = BudgetAccumulator()
@@ -231,6 +221,6 @@ class TestBudgetAccumulatorEdgeCases:
         """accumulate calls refill but does not modify its own budget before adding."""
         acc = BudgetAccumulator()
         r = acc.refill(20.0, 80.0, 80.0)
-        assert r == pytest.approx(0.25)
+        assert r == pytest.approx(1.0)  # (20/80)*(80/80)*4 = 1.0
         # refill should be stateless — internal budget unchanged
         assert acc.budget == pytest.approx(0.0)

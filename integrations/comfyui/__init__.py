@@ -2,11 +2,13 @@
 sd-flow: Flow Scheduler custom node pack for ComfyUI.
 
 At load time, this module monkey-patches ComfyUI's sampler registry so that
-"flow_heun" and "flow_euler" appear in EVERY built-in KSampler's dropdown
-list -- no workflow changes needed.
+the ``flow`` sampler appears in EVERY built-in KSampler's dropdown list --
+no workflow changes needed.
 
-Also registers standalone nodes (FlowSigmaSchedule, FlowSampler) for
-use with the SamplerCustomAdvanced workflow.
+The ``flow`` sampler is a full adaptation of scx_flow's budget-driven
+scheduling: each step's ODE solver quality is determined by its budget tier
+(PRIORITY→Heun correction, DEFICIT→Fast Euler), mirroring scx_flow's
+variable time-slice allocation.
 """
 
 import logging
@@ -17,18 +19,21 @@ _sd_flow_logger = logging.getLogger("sd-flow")
 
 # ── Monkey-patch ComfyUI's sampler registry ─────────────────────────────
 try:
-    from sd_flow.sampler import sample_flow_heun, sample_flow_euler
+    from sd_flow.sampler import sample_flow, sample_flow_heun, sample_flow_euler
 
     from comfy.k_diffusion import sampling as _k_sampling
     import comfy.samplers as _samplers
 
-    # 1. Inject sampler functions into k_diffusion_sampling module
+    # 1. Inject sampler functions into k_diffusion_sampling module.
+    #    Inject all variants: the primary "flow" + legacy heun/euler.
+    _k_sampling.sample_flow = sample_flow
     _k_sampling.sample_flow_heun = sample_flow_heun
     _k_sampling.sample_flow_euler = sample_flow_euler
-    _sd_flow_logger.info("Injected sample_flow_heun / sample_flow_euler into k_diffusion_sampling")
+    _sd_flow_logger.info("Injected sample_flow (adaptive) + legacy variants into k_diffusion_sampling")
 
-    # 2. Register names in KSAMPLER_NAMES (populates KSampler dropdown)
-    for _name in ("flow_heun", "flow_euler"):
+    # 2. Register names in KSAMPLER_NAMES (populates KSampler dropdown).
+    #    "flow" is the primary (fully adaptive) sampler.
+    for _name in ("flow", "flow_heun", "flow_euler"):
         if _name not in _samplers.KSAMPLER_NAMES:
             _samplers.KSAMPLER_NAMES.append(_name)
 
@@ -39,11 +44,11 @@ try:
                     if n not in _samplers.KSAMPLER_NAMES]
     _samplers.SAMPLER_NAMES = list(_samplers.KSAMPLER_NAMES) + _extra_non_k
 
-    _sd_flow_logger.info("Registered flow_heun / flow_euler in KSampler dropdowns")
+    _sd_flow_logger.info("Registered 'flow' sampler in KSampler dropdowns")
 except Exception as _exc:
     _sd_flow_logger.warning("Failed to patch KSampler dropdowns: %s", _exc)
 
-# ── Standalone nodes ─────────────────────────────────────────────────────
+# ── Standalone nodes (for SamplerCustomAdvanced workflow) ────────────────
 # Use absolute imports because ComfyUI loads __init__.py with a mangled
 # module name, which breaks Python's relative import resolution.
 

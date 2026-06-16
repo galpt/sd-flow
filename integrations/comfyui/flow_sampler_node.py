@@ -3,18 +3,24 @@ ComfyUI custom node: FlowSamplerNode.
 
 Creates a KSAMPLER wrapping the flow ODE solver. The output plugs
 directly into the ``sampler`` input of ``SamplerCustomAdvanced``.
+
+The default "adapt" mode selects the solver per step based on the
+flow budget tier (PRIORITY→Heun, DEFICIT→Euler), mirroring scx_flow's
+variable time-slice allocation.
 """
 
 from comfy_api.latest import io
 import comfy.samplers
-from sd_flow.sampler import sample_flow_heun, sample_flow_euler
+from sd_flow.sampler import sample_flow, sample_flow_heun, sample_flow_euler
 
 
 class FlowSamplerNode(io.ComfyNode):
     """
-    Creates a Flow Sampler that uses the flow ODE solver.
+    Creates a Flow Sampler that uses the flow scheduling algorithm.
 
-    Supports Heun's 2nd order (default) and Euler's 1st order solvers.
+    Default mode ("adapt") uses the adaptive solver: PRIORITY/NORMAL
+    steps get Heun's 2nd order correction while LOW/DEFICIT steps use
+    Euler for speed.  Fall back to "heun" or "euler" for fixed-mode.
     Works with any sigma schedule, not just FlowSigmaSchedule.
     """
 
@@ -25,7 +31,7 @@ class FlowSamplerNode(io.ComfyNode):
             display_name="Flow Sampler",
             category="model/sampling/samplers",
             inputs=[
-                io.Combo.Input("solver", options=["heun", "euler"]),
+                io.Combo.Input("solver", options=["adapt", "heun", "euler"]),
                 io.Float.Input(
                     "s_churn",
                     default=0.0,
@@ -69,7 +75,8 @@ class FlowSamplerNode(io.ComfyNode):
     @classmethod
     def execute(cls, solver, s_churn, s_tmin, s_tmax, s_noise) -> io.NodeOutput:
         # Select the sampling function based on solver choice
-        sampler_fn = sample_flow_heun if solver == "heun" else sample_flow_euler
+        _fn_map = {"adapt": sample_flow, "heun": sample_flow_heun, "euler": sample_flow_euler}
+        sampler_fn = _fn_map.get(solver, sample_flow)
 
         # Create a KSAMPLER directly (bypasses name-based ksampler() lookup)
         custom_sampler = comfy.samplers.KSAMPLER(

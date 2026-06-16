@@ -202,8 +202,13 @@ class FlowSigmaSchedule:
         schedule = torch.cat(tier_groups)
         # Sort ensures monotonic decreasing
         schedule = torch.sort(schedule, descending=True).values
-        # Guarantee first value == sigma_max and last non-zero ≈ sigma_min
+        # Guarantee first value == sigma_max
         schedule[0] = self.sigma_max
+        # Guarantee last non-zero value == sigma_min
+        if len(schedule) > 1:
+            schedule[-1] = self.sigma_min
+
+        # Append the zero endpoint
         schedule = torch.cat([schedule, torch.zeros(1)])
 
         # Trim to num_steps + 1
@@ -213,5 +218,18 @@ class FlowSigmaSchedule:
             # Pad with interpolated values
             pad = num + 1 - len(schedule)
             schedule = torch.cat([schedule, torch.zeros(pad)])
+
+        # --- 8. Store per-step tier info for solver adaptation ---
+        # Map each sigma in the final schedule back to its tier
+        # by checking which tier's sigma range it falls into.
+        self.step_tiers: list[int] = []
+        schedule_no_zero = schedule[:-1]  # exclude trailing 0
+        for sigma_val in schedule_no_zero:
+            assigned = 3  # default: deficit
+            for seg_tier, seg_lo, seg_hi in segments:
+                if seg_lo < sigma_val <= seg_hi:
+                    assigned = seg_tier.value
+                    break
+            self.step_tiers.append(assigned)
 
         return schedule

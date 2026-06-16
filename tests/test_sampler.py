@@ -3,6 +3,7 @@
 import pytest
 import torch
 from sd_flow.sampler import (
+    sample_flow,
     sample_flow_heun,
     sample_flow_euler,
     FlowSampler,
@@ -147,8 +148,12 @@ class TestSamplerFnMap:
         assert 'euler' in SAMPLER_FN_MAP
         assert SAMPLER_FN_MAP['euler'] is sample_flow_euler
 
-    def test_only_two_entries(self):
-        assert len(SAMPLER_FN_MAP) == 2
+    def test_contains_flow(self):
+        assert 'flow' in SAMPLER_FN_MAP
+        assert SAMPLER_FN_MAP['flow'] is sample_flow
+
+    def test_has_four_entries(self):
+        assert len(SAMPLER_FN_MAP) == 4
 
     def test_values_are_callable(self):
         for name, fn in SAMPLER_FN_MAP.items():
@@ -165,7 +170,7 @@ class TestFlowSamplerInit:
     def test_default_construction(self):
         sampler = FlowSampler()
         assert isinstance(sampler.schedule, FlowSigmaSchedule)
-        assert sampler.solver == 'heun'
+        assert sampler.solver == 'flow'
         assert sampler.s_churn == 0.0
         assert sampler.s_tmin == 0.0
         assert sampler.s_tmax == float('inf')

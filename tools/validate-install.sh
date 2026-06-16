@@ -18,18 +18,21 @@ echo "║       sd-flow — Installation Validation         ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 
+# Which Python to use (can be overridden via PYTHON env var)
+PY_CMD="${PYTHON:-python}"
+
 # ── Check 1: Python package ─────────────────────────────────────────────
-echo "🔍 1. Python package..."
-if python -c "from sd_flow import FlowSigmaSchedule; print('     ✓ sd_flow imported successfully')" 2>&1; then
+echo "🔍 1. Python package (using: $PY_CMD)..."
+if "$PY_CMD" -c "from sd_flow import FlowSigmaSchedule; print('     ✓ sd_flow imported successfully')" 2>&1; then
     true
 else
-    echo "     ✗ sd_flow module not importable"
+    echo "     ✗ sd_flow module not importable (tried: $PY_CMD)"
     errors=$((errors + 1))
 fi
 
 # ── Check 2: Schedule generation ────────────────────────────────────────
 echo "🔍 2. Schedule generation..."
-if python -c "
+if "$PY_CMD" -c "
 from sd_flow import FlowSigmaSchedule
 s = FlowSigmaSchedule(num_steps=10)
 sigmas = s.generate_schedule()

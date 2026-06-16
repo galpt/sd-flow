@@ -78,7 +78,7 @@ class FlowSigmaScheduleNode(io.ComfyNode):
                 ),
                 io.Combo.Input(
                     "tier_thresholds_preset",
-                    options=["default (1.5 / 1.0 / 0.5)", "aggressive (2.0 / 1.5 / 1.0)", "gentle (1.2 / 0.8 / 0.4)"],
+                    options=["default", "aggressive", "gentle"],
                     advanced=True,
                 ),
             ],
@@ -98,9 +98,9 @@ class FlowSigmaScheduleNode(io.ComfyNode):
     ) -> io.NodeOutput:
         # Parse tier thresholds from preset
         preset_map = {
-            "default (1.5 / 1.0 / 0.5)": (1.5, 1.0, 0.5),
-            "aggressive (2.0 / 1.5 / 1.0)": (2.0, 1.5, 1.0),
-            "gentle (1.2 / 0.8 / 0.4)": (1.2, 0.8, 0.4),
+            "default": (1.5, 1.0, 0.5),
+            "aggressive": (2.0, 1.5, 1.0),
+            "gentle": (1.2, 0.8, 0.4),
         }
         tier_thresholds = preset_map.get(tier_thresholds_preset, (1.5, 1.0, 0.5))
 

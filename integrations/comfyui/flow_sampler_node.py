@@ -52,7 +52,7 @@ class FlowSamplerNode(io.ComfyNode):
                 ),
                 io.Float.Input(
                     "s_tmax",
-                    default=float("inf"),
+                    default=9999.0,
                     min=0.0,
                     max=10000.0,
                     step=0.01,

@@ -60,7 +60,7 @@ Creates a sampler that uses the flow ODE solver. Plugs into `SamplerCustomAdvanc
 | `solver` | COMBO | adapt | Solver mode (`adapt` = per-step tier adaptive, `heun` = all steps corrected, `euler` = all steps fast) |
 | `s_churn` | FLOAT | 0.0 | Stochastic churn strength (advanced) |
 | `s_tmin` | FLOAT | 0.0 | Minimum sigma for churn (advanced) |
-| `s_tmax` | FLOAT | inf | Maximum sigma for churn (advanced) |
+| `s_tmax` | FLOAT | 9999.0 | Maximum sigma for churn (advanced) |
 | `s_noise` | FLOAT | 1.0 | Noise multiplier for churn (advanced) |
 
 ## Example Workflow

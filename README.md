@@ -99,13 +99,14 @@ Based on their budget, timesteps are classified into tiers. A **rotating dispatc
 
 The solver quality per step is determined by the flow budget tier: high-budget steps (PRIORITY/NORMAL) get Heun's 2nd order correction, while low-budget steps (LOW/DEFICIT) use faster Euler. This mirrors scx_flow's variable time-slice allocation. The solver also appears as `flow` in every built-in KSampler dropdown — no manual wiring needed.
 
-### What's different from Karras?
+### What's different from standard samplers?
 
-| Aspect | Karras (ρ=7) | sd-flow |
-|--------|-------------|---------|
-| Step distribution | Concentrated at low noise | Fair across all tiers |
-| Control | Single `rho` parameter | Budget thresholds + dispatch |
-| Starvation protection | None | Every tier gets ≥1 step |
+| Aspect | Euler / Heun / DDIM | sd-flow `flow` sampler |
+|--------|---------------------|------------------------|
+| Solver behavior | Same for every step | Adaptive per budget tier (PRIORITY→Heun, DEFICIT→Euler) |
+| Sigma schedule | Fixed formula (Karras, Normal, etc.) | Linear sigma spacing (like Normal) |
+| Control | Algorithm choice only | Budget thresholds + tier classification |
+| Starvation protection | None | Every tier gets ≥1 correction step |
 | Determinism | Yes | Yes |
 
 ### Project tree
@@ -142,9 +143,9 @@ sd-flow/
 
 Run `bash integrations/comfyui/inject.sh` again, or check the [ComfyUI troubleshooting guide](docs/COMIFY_INTEGRATION.md). Most likely `pip install sd-flow` was missed.
 
-### "The images look different from Karras"
+### "The images look different from what I expected"
 
-That's expected — the step distribution is intentionally different. Try adjusting the **tier thresholds preset** on the FlowSigmaSchedule node. The "Aggressive" preset behaves more like Karras.
+That's expected — the `flow` sampler uses an adaptive solver per step. Try adjusting the **tier thresholds preset** on the FlowSigmaSchedule node. The "Aggressive" preset raises the bar for Heun correction (fewer corrected steps), while "Gentle" lowers it (more corrected steps).
 
 ### "My A1111 / SD-Reforge isn't detected"
 
@@ -155,7 +156,7 @@ from sd_flow import FlowSigmaSchedule, FlowSampler
 
 schedule = FlowSigmaSchedule(num_steps=20)
 sigmas = schedule.generate_schedule()
-sampler = FlowSampler(solver="heun")
+sampler = FlowSampler(solver="flow")
 result = sampler.sample(my_denoiser, latents)
 ```
 
@@ -203,11 +204,13 @@ bash tests/run_all.sh
 ### Parameters
 
 | Parameter | Default | What it does |
-|---|---|---|
+|---|---|---|---|
 | `num_steps` | 18 | Total sampling steps |
 | `sigma_min` | 0.002 | Lowest noise level |
 | `sigma_max` | 80.0 | Highest noise level |
-| `rho` | 7.0 | Step spacing within tiers |
+| `budget_max` | 2.0 | Max budget ceiling |
+| `budget_min` | -0.5 | Min budget floor |
+| `tier_thresholds` | (1.5, 1.0, 0.5) | Budget tier boundaries |
 | `budget_max` | 2.0 | Max budget ceiling |
 | `budget_min` | -0.5 | Min budget floor |
 

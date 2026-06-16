@@ -57,9 +57,9 @@ try:
     import torch as _torch
     from sd_flow.schedule import FlowSigmaSchedule as _FlowSigmaSchedule
 
-    def _get_sigmas_flow(n: int, sigma_min: float, sigma_max: float, rho: float = 7.0) -> _torch.Tensor:
+    def _get_sigmas_flow(n: int, sigma_min: float, sigma_max: float) -> _torch.Tensor:
         """Handler function for the flow sigma schedule (use_ms=False)."""
-        _sched = _FlowSigmaSchedule(num_steps=n, sigma_min=sigma_min, sigma_max=sigma_max, rho=rho)
+        _sched = _FlowSigmaSchedule(num_steps=n, sigma_min=sigma_min, sigma_max=sigma_max)
         return _sched.generate_schedule().to(_torch.float32)
 
     _samplers.SCHEDULER_HANDLERS["flow"] = _samplers.SchedulerHandler(

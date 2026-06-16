@@ -13,28 +13,13 @@ class BudgetAccumulator:
     smaller transitions refill less.
     """
 
-    # Tier thresholds matching scx_flow's budget tier boundaries
-    TIER_PRIORITY = 1.5   # >= 1.5
-    TIER_NORMAL = 1.0     # >= 1.0
-    TIER_LOW = 0.5        # >= 0.5
-    # Below 0.5 = DEFICIT
-
-    BUDGET_MAX = 2.0
-    BUDGET_MIN = -0.5
-
     def __init__(self, budget_max=2.0, budget_min=-0.5, tier_thresholds=(1.5, 1.0, 0.5)):
         self.budget = 0.0
         self.budget_max = budget_max
         self.budget_min = budget_min
         self.tier_thresholds = tier_thresholds  # (priority, normal, low)
 
-    # Internal scale factor so that cumulative budget naturally spans
-    # [0, BUDGET_MAX].  Derived from:
-    #   max_possible_refill_per_step = (sigma_max/sigma_max) * (sigma_max/sigma_max) * SCALE = SCALE
-    #   With SCALE=4 and typical sigma drops, each early step adds ~0.5–1.0
-    #   budget, letting cumulative budget reach BUDGET_MAX (~2.0) within
-    #   a handful of steps.
-    _REFILL_SCALE = 4.0
+    _REFILL_SCALE = 4.0  # scales refill so cumulative budget spans [0, BUDGET_MAX]
 
     def refill(self, delta_sigma, sigma_cur, sigma_max, weight=1.0):
         """

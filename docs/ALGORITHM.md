@@ -76,11 +76,11 @@ Where `D(x, σ)` is the denoiser network output.
 Both problems share a fundamental structure: **allocating limited compute across multiple competing entities**.
 
 | CPU Scheduling | Diffusion Sampling |
-|---|---|
+|---|---|---|
 | Tasks compete for CPU time | Timesteps compete for ODE evaluations |
 | Budget accumulates during sleep | Budget accumulates across sigma transitions |
-| Tier classification by budget level | Phase classification by sigma region |
-| Rotating dispatch prevents task starvation | Rotating dispatch prevents sigma-range starvation |
+| Tier classification by budget level | Tier classification by accumulated budget |
+| Budget determines time-slice length | Budget determines solver order (Heun vs Euler) |
 
 ### The Flow Budget for Diffusion
 
@@ -103,60 +103,60 @@ Large sigma drops at high noise levels generate the most budget — early denois
 
 Each timestep is classified by its budget:
 
-| Tier | Budget | Sigma Region | Role in Generation |
+| Tier | Budget | Effect on ODE Solver |
 |---|---|---|---|
-| PRIORITY | ≥ 1.5 | σ > 0.75·σ_max | Coarse structure, initial burst |
-| NORMAL | ≥ 1.0 | 0.50·σ_max < σ ≤ 0.75·σ_max | Medium features |
-| LOW | ≥ 0.5 | 0.25·σ_max < σ ≤ 0.50·σ_max | Fine details |
-| DEFICIT | < 0.5 | σ ≤ 0.25·σ_max | Final cleanup |
+| PRIORITY | ≥ 1.5 | Full Heun correction (2 NFEs) |
+| NORMAL | ≥ 1.0 | Full Heun correction (2 NFEs) |
+| LOW | ≥ 0.5 | Euler prediction only (1 NFE) |
+| DEFICIT | < 0.5 | Fast Euler, no noise injection (1 NFE) |
 
-### Rotating Step Allocation
+### Per-Step Tier Labels (Not Rotating Dispatch)
 
-Unlike CPU scheduling (where the rotating dispatch selects which task runs next), diffusion sampling requires sigma values in monotonically decreasing order. The flow scheduler uses rotating dispatch to **distribute step counts across tiers**:
+The rotating dispatch concept from scx_flow determines which TIER of task runs next. In diffusion, sigma values must be monotonically decreasing (time moves forward), so we cannot reorder steps. Instead, the flow algorithm assigns a **tier label** to each step via budget accumulation:
 
-1. Each tier is guaranteed at least 1 step
-2. Remaining steps are distributed proportional to the tier's budget share
-3. The rotating dispatch ensures the rounding doesn't systematically favor any tier
-4. Steps within each tier follow Karras-style polynomial spacing
+1. Each sigma transition `σ_i → σ_{i+1}` generates a budget refill proportional to the sigma drop
+2. The cumulative budget determines the step's tier (PRIORITY/NORMAL/LOW/DEFICIT)
+3. Higher-budget steps receive Heun correction; lower-budget steps use faster Euler
+4. If any tier has zero steps (no step accumulated enough budget), the highest-budget step is demoted to that tier to ensure no sigma range is entirely starved of correction
 
 ### Schedule Generation
 
 ```
-Input: num_steps, sigma_min, sigma_max, rho
+Input: num_steps, sigma_min, sigma_max
 
-1. Segment [sigma_max, sigma_min] into 4 tier sigma ranges
-2. Build reference Karras schedule with (num_steps + 1) points
-3. Compute budget and tier for each transition
-4. Count initial step distribution across tiers
-5. Apply rotating dispatch to re-weight distribution
-6. Generate Karras-polynomial steps within each tier's sigma range
-7. Concatenate in decreasing sigma order, append 0
+1. Generate linear sigma spacing: linspace(sigma_max, sigma_min, num_steps)
+2. Append trailing 0: [sigma_max, ..., sigma_min, 0]
+3. For each transition, compute budget refill:
+     refill = (Δσ / σ_max) × (σ_cur / σ_max) × 4.0
+     budget[i+1] = clamp(budget[i] + refill, B_min, B_max)
+4. Classify each step into a tier by its budget
+5. Ensure every viable tier has at least 1 correction step
 
 Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
+         self.step_tiers: list[int]  (per-step tier indices)
 ```
 
 ---
 
-## 4. Key Differences from Karras Schedule
+## 4. Key Differences from Standard Schedulers
 
-| Property | Karras (ρ=7) | Flow Schedule |
+| Property | Karras / Normal | Flow Schedule |
 |---|---|---|
-| Step distribution | Concentrated at low noise | Distributed across all sigma tiers |
-| Control mechanism | Single parameter `ρ` | Budget thresholds + rotating dispatch |
-| Fairness guarantee | None (ρ concentrates by design) | Every tier gets at minimum 1 step |
+| Sigma spacing | Karras (polynomial) or Normal (linear) | Linear (same as Normal) |
+| Step behavior | Same solver for every step | Adaptive: PRIORITY steps get Heun, DEFICIT steps get Euler |
+| Control mechanism | Single parameter `ρ` (Karras) or none (Normal) | Budget thresholds + tier classification |
+| Fairness guarantee | None | Every tier gets at least 1 correction step |
 | Determinism | Yes | Yes |
-| Heuristics | None | None (budget derived from sigma only) |
 
 ---
 
 ## 5. Parameter Reference
 
 | Parameter | Default | Range | Effect |
-|---|---|---|---|
+|---|---|---|---|---|
 | `num_steps` | 18 | [1, 10000] | Total number of sampling steps |
 | `sigma_min` | 0.002 | (0, sigma_max) | Lowest noise level |
 | `sigma_max` | 80.0 | (sigma_min, ∞) | Highest noise level |
-| `rho` | 7.0 | (0, 100) | Polynomial spacing within each tier |
 | `budget_max` | 2.0 | [0.1, 10.0] | Maximum budget ceiling |
 | `budget_min` | −0.5 | [−2.0, 2.0] | Minimum budget floor |
 | `tier_thresholds` | (1.5, 1.0, 0.5) | varies | Budget boundaries for PRIORITY/NORMAL/LOW |
@@ -164,10 +164,10 @@ Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
 ### Tier Threshold Presets
 
 | Preset | Priority | Normal | Low | Effect |
-|---|---|---|---|---|
-| Default | 1.5 | 1.0 | 0.5 | Balanced distribution |
-| Aggressive | 2.0 | 1.5 | 1.0 | More steps in high-noise tiers |
-| Gentle | 1.2 | 0.8 | 0.4 | More steps in low-noise tiers |
+|---|---|---|---|---|---|
+| Default | 1.5 | 1.0 | 0.5 | Balanced correction distribution |
+| Aggressive | 2.0 | 1.5 | 1.0 | Fewer correction steps (higher bar for Heun) |
+| Gentle | 1.2 | 0.8 | 0.4 | More correction steps (lower bar for Heun) |
 
 ---
 

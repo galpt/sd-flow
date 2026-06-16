@@ -41,12 +41,11 @@ Generates a sigma schedule using the flow budget algorithm. Plugs into `SamplerC
 | `steps` | INT | 18 | Number of sampling steps |
 | `sigma_max` | FLOAT | 14.614642 | Maximum noise level (advanced) |
 | `sigma_min` | FLOAT | 0.0291675 | Minimum noise level (advanced) |
-| `rho` | FLOAT | 7.0 | Schedule exponent within tiers (advanced) |
 | `budget_max` | FLOAT | 2.0 | Maximum budget ceiling (advanced) |
 | `budget_min` | FLOAT | -0.5 | Minimum budget floor (advanced) |
 | `tier_thresholds_preset` | COMBO | default | Budget tier boundaries (advanced) |
 
-> **Note**: Default `sigma_max` and `sigma_min` are set to SDXL typical values. For SD1.5, use the `KarrasScheduler` values from the built-in scheduler node.
+> **Note**: Default `sigma_max` and `sigma_min` are set to SDXL typical values. For SD1.5, use the built-in `BasicScheduler` node values instead.
 
 ### Flow Sampler
 
@@ -81,7 +80,7 @@ Or use the `FlowSigmaSchedule` with **any** existing sampler for hybrid workflow
 | Latest (as of 2026-06) | ✓ Tested |
 | Older versions | Should work — uses `comfy_api.latest` |
 
-The custom node uses the `ComfyExtension` API (`io.ComfyNode`) which is the current standard. If ComfyUI's internal API changes, the integration layer may need updates — the `sd_flow` library itself is unaffected.
+The custom node uses the `io.ComfyNode` base class from `comfy_api.latest`. If ComfyUI's internal API changes, the integration layer may need updates — the `sd_flow` library itself is unaffected.
 
 ## Technical Details
 

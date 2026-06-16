@@ -8,9 +8,7 @@
 
 sd-flow adapts the **scx_flow** CPU scheduling algorithm — used in Linux kernel process scheduling — into a Stable Diffusion noise sampler.
 
-The original scx_flow uses a **budget-driven tier system** with **rotating dispatch** to guarantee every task gets fair CPU time, no matter its priority. sd-flow applies the same logic to diffusion: instead of tasks competing for CPU, **sigma ranges compete for step allocation**. The result is a noise schedule that prevents any noise level from being under-sampled.
-
-Think of it as the difference between a VIP line (Karras ρ=7, where low-noise steps get most of the attention) and a round-robin queue (flow schedule, where every sigma tier gets its turn).
+The original scx_flow uses a **budget-driven tier system** with **rotating dispatch** to guarantee every task gets fair CPU time. sd-flow applies the same budget logic to diffusion: each step's sigma transition accumulates a noise budget, and that budget determines whether the step gets a full Heun correction (high budget) or a fast Euler pass (low budget). The result is a sampler that allocates compute where the noise dynamics demand it most.
 
 ### Will this work for me?
 
@@ -91,9 +89,7 @@ sd-flow is two things:
 
 **1. A sigma schedule generator** (`FlowSigmaSchedule`)
 
-The sigma range [σ_max, σ_min] is divided into 4 tiers — Priority, Normal, Low, Deficit — each covering a quarter of the noise spectrum. A "budget" is tracked across sigma transitions: when sigma drops steeply (early steps), budget accumulates. When sigma changes slowly (late steps), budget drains.
-
-Based on their budget, timesteps are classified into tiers. A **rotating dispatch** cycle ensures each tier gets its fair share of steps, preventing any sigma range from being starved.
+Uses linear sigma spacing (same as ComfyUI's "Normal" scheduler). A "budget" is tracked across sigma transitions: when sigma drops steeply (early steps), budget accumulates. When sigma changes slowly (late steps), budget drains. Based on their accumulated budget, timesteps are classified into 4 tiers — Priority, Normal, Low, Deficit — which determine the solver quality for that step.
 
 **2. An adaptive ODE solver** (`FlowSampler`)
 
@@ -116,7 +112,6 @@ sd-flow/
 ├── src/sd_flow/                  ★ Core library
 │   ├── budget.py                 Budget accumulator (scx_flow adaptation)
 │   ├── tiers.py                  Tier enum + sigma range segmentation
-│   ├── rotating_dispatch.py      4-phase rotating dispatch
 │   ├── schedule.py               FlowSigmaSchedule generator
 │   ├── sampler.py                FlowSampler (adaptive flow ODE solver)
 │   └── utils.py                  Helpers (clamp, to_d, round_sigma)
@@ -127,7 +122,7 @@ sd-flow/
 │   ├── inject.sh                 Installation script
 │   └── remove.sh                 Removal script
 ├── examples/example.py           Standalone usage example
-├── tests/                        Unit tests (147 tests, all pass)
+├── tests/                        Unit tests (118 tests, all pass)
 ├── tools/                        Utility scripts
 │   ├── find-comfyui.sh           ComfyUI path detection
 │   └── validate-install.sh       Post-install verification
@@ -180,7 +175,6 @@ schedule = FlowSigmaSchedule(
     num_steps=25,
     sigma_min=0.002,
     sigma_max=80.0,
-    rho=5.0,
     budget_max=3.0,
     tier_thresholds=(2.0, 1.5, 1.0),  # "Aggressive" preset
 )
@@ -204,15 +198,13 @@ bash tests/run_all.sh
 ### Parameters
 
 | Parameter | Default | What it does |
-|---|---|---|---|
+|---|---|---|
 | `num_steps` | 18 | Total sampling steps |
 | `sigma_min` | 0.002 | Lowest noise level |
 | `sigma_max` | 80.0 | Highest noise level |
 | `budget_max` | 2.0 | Max budget ceiling |
 | `budget_min` | -0.5 | Min budget floor |
 | `tier_thresholds` | (1.5, 1.0, 0.5) | Budget tier boundaries |
-| `budget_max` | 2.0 | Max budget ceiling |
-| `budget_min` | -0.5 | Min budget floor |
 
 ---
 
@@ -222,7 +214,7 @@ bash tests/run_all.sh
 - [EDM / Karras scheduler](https://github.com/NVlabs/edm) — the mathematical foundation for noise scheduling in modern diffusion models.
 - [cachy-screen-enhancer](https://github.com/galpt/cachy-screen-enhancer) — this project's install-flow template (one-command, self-bootstrapping, clear undo).
 
-sd-flow is **not** a port of scx_flow's C/Rust code. It's a domain adaptation of the scheduling philosophy — the same rotating-dispatch fairness guarantee, applied to noise level allocation instead of CPU time.
+sd-flow is **not** a port of scx_flow's C/Rust code. It's a domain adaptation of the scheduling philosophy — the same budget-driven tier system, applied to ODE solver step correction instead of CPU time allocation.
 
 ---
 

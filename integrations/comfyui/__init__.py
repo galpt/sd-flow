@@ -50,26 +50,6 @@ try:
             _samplers.SAMPLER_NAMES.append(_name)
 
     _sd_flow_logger.info("Registered 'flow' sampler in KSampler dropdowns")
-
-    # ── 4. Register the flow sigma schedule in the scheduler dropdown ──
-    #    This makes "flow" appear in every KSampler's scheduler dropdown
-    #    (alongside "karras", "exponential", etc.).
-    import torch as _torch
-    from sd_flow.schedule import FlowSigmaSchedule as _FlowSigmaSchedule
-
-    def _get_sigmas_flow(n: int, sigma_min: float, sigma_max: float) -> _torch.Tensor:
-        """Handler function for the flow sigma schedule (use_ms=False)."""
-        _sched = _FlowSigmaSchedule(num_steps=n, sigma_min=sigma_min, sigma_max=sigma_max)
-        return _sched.generate_schedule().to(_torch.float32)
-
-    _samplers.SCHEDULER_HANDLERS["flow"] = _samplers.SchedulerHandler(
-        handler=_get_sigmas_flow, use_ms=False,
-    )
-    # Append to SCHEDULER_NAMES in-place (same identity pattern as SAMPLER_NAMES).
-    if "flow" not in _samplers.SCHEDULER_NAMES:
-        _samplers.SCHEDULER_NAMES.append("flow")
-
-    _sd_flow_logger.info("Registered 'flow' scheduler in KSampler scheduler dropdown")
 except Exception as _exc:
     _sd_flow_logger.warning("Failed to patch KSampler dropdowns: %s", _exc)
 

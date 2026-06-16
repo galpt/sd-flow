@@ -12,9 +12,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INJECT_SCRIPT="$SCRIPT_DIR/integrations/comfyui/inject.sh"
 
-echo "╔══════════════════════════════════════════════════╗"
-echo "║         sd-flow — Flow Scheduler Install        ║"
-echo "╚══════════════════════════════════════════════════╝"
+echo "+----------------------------------------------------+"
+echo "|          sd-flow — Flow Scheduler Install         |"
+echo "+----------------------------------------------------+"
 echo ""
 
 # ── Check Python ────────────────────────────────────────────────────────

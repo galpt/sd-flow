@@ -13,9 +13,9 @@ set -euo pipefail
 
 errors=0
 
-echo "╔══════════════════════════════════════════════════╗"
-echo "║       sd-flow — Installation Validation         ║"
-echo "╚══════════════════════════════════════════════════╝"
+echo "+----------------------------------------------------+"
+echo "|         sd-flow — Installation Validation         |"
+echo "+----------------------------------------------------+"
 echo ""
 
 # Which Python to use (can be overridden via PYTHON env var)

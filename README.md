@@ -39,9 +39,9 @@ What happens:
 You'll see something like:
 
 ```
-╔══════════════════════════════════════════════════╗
-║         sd-flow — Flow Scheduler Install        ║
-╚══════════════════════════════════════════════════╝
++----------------------------------------------------+
+|          sd-flow — Flow Scheduler Install         |
++----------------------------------------------------+
 
 🔍 Checking Python...
   ✓ Found Python 3.11
@@ -50,7 +50,8 @@ You'll see something like:
    → /home/user/ComfyUI/custom_nodes/sd-flow/
 
 ✅ sd-flow injected successfully!
-   Restart ComfyUI to use FlowSigmaSchedule and FlowSampler nodes.
+   Restart ComfyUI — 'flow' appears in every KSampler dropdown,
+   plus FlowSigmaSchedule/FlowSampler nodes for custom workflows.
 ```
 
 ### Undo

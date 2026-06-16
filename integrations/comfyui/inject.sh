@@ -63,7 +63,13 @@ TARGET_DIR="$COMFYUI_DIR/custom_nodes/$TARGET_NAME"
 
 echo "📦 Installing sd-flow Python package..."
 cd "$REPO_ROOT"
-pip install -e . 2>&1 | tail -3
+# Use python -m pip to avoid PATH issues in subshells
+PY_CMD="${PYTHON:-python}"
+if command -v "$PY_CMD" >/dev/null 2>&1; then
+    "$PY_CMD" -m pip install -e . 2>&1 | tail -3
+else
+    python -m pip install -e . 2>&1 | tail -3
+fi
 
 echo ""
 echo "🔌 Injecting custom node into: $COMFYUI_DIR"

@@ -38,7 +38,7 @@ find_comfyui() {
 
 COMFYUI_DIR="${1:-}"
 if [ -z "$COMFYUI_DIR" ]; then
-    COMFYUI_DIR="$(find_comfyui)" || true
+    COMFYUI_DIR="$(find_comfyui || true)"
 fi
 
 TARGET_DIR=""

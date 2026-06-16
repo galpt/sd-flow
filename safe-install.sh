@@ -23,7 +23,7 @@ PYTHON=""
 for candidate in python3 python; do
     if command -v "$candidate" >/dev/null 2>&1; then
         ver=$("$candidate" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)
-        if [ -n "$ver" ] && python -c "import sys; exit(0 if sys.version_info >= (3,10) else 1)" 2>/dev/null; then
+        if [ -n "$ver" ] && "$candidate" -c "import sys; exit(0 if sys.version_info >= (3,10) else 1)" 2>/dev/null; then
             PYTHON="$candidate"
             echo "  ✓ Found Python $ver"
             break

@@ -32,13 +32,13 @@ What happens:
 1. Detects your ComfyUI installation (checks common paths)
 2. Copies the custom node into `custom_nodes/sd-flow/`
 3. Installs the `sd_flow` Python package
-4. **Restart ComfyUI** — the `flow` sampler appears in every built-in `KSampler`'s sampler dropdown (just select it), and the `FlowSigmaSchedule` + `FlowSampler` nodes appear for `SamplerCustomAdvanced` workflows
+4. **Restart ComfyUI** — `sampler=flow` and `scheduler=flow` appear in every built-in `KSampler`'s dropdowns (just select them), and the `FlowSigmaSchedule` + `FlowSampler` nodes appear for `SamplerCustomAdvanced` workflows
 
 You'll see something like:
 
 ```
 +----------------------------------------------------+
-|          sd-flow — Flow Scheduler Install         |
+|           sd-flow — Flow Sampler Install           |
 +----------------------------------------------------+
 
 🔍 Checking Python...
@@ -48,8 +48,8 @@ You'll see something like:
    → /home/user/ComfyUI/custom_nodes/sd-flow/
 
 ✅ sd-flow injected successfully!
-   Restart ComfyUI — 'flow' appears in every KSampler's sampler dropdown,
-   plus FlowSigmaSchedule/FlowSampler nodes for custom workflows.
+   Restart ComfyUI — 'flow' appears in every KSampler sampler & scheduler
+   dropdown, plus FlowSigmaSchedule/FlowSampler nodes for custom workflows.
 ```
 
 ### Undo
@@ -140,7 +140,7 @@ Run `bash integrations/comfyui/inject.sh` again, or check the [ComfyUI troublesh
 
 ### "The images look different from what I expected"
 
-That's expected — the `flow` sampler uses an adaptive solver per step. Try adjusting the **tier thresholds preset** on the FlowSigmaSchedule node. The "Aggressive" preset raises the bar for Heun correction (fewer corrected steps), while "Gentle" lowers it (more corrected steps).
+That's expected — the `flow` sampler uses an adaptive solver per step. Try adjusting the **tier thresholds preset** on the FlowSigmaSchedule node. The "Aggressive" preset raises the bar for DDIM (fewer deterministic steps), while "Gentle" lowers it (more deterministic steps).
 
 ### "My A1111 / SD-Reforge isn't detected"
 

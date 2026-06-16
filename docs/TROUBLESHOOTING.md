@@ -49,8 +49,8 @@ And check the error message. Open an issue with the full traceback.
 
 Try switching between tier threshold presets on the `FlowSigmaSchedule` node:
 - **Default**: Balanced correction distribution
-- **Aggressive**: Fewer steps get Heun correction (higher bar)
-- **Gentle**: More steps get Heun correction (lower bar)
+- **Aggressive**: Fewer steps get DDIM (higher bar, more Euler_A instead)
+- **Gentle**: More steps get DDIM (lower bar, fewer Euler_A)
 
 ### "Images look blurry / lack detail"
 
@@ -58,7 +58,7 @@ The `flow` sampler uses Euler Ancestral for LOW/DEFICIT budget tiers (adds noise
 
 Try:
 1. Increase `num_steps` (e.g., 25–30 instead of 18)
-2. Use the "Gentle" tier threshold preset (lowers bar for Heun correction)
+2. Use the "Gentle" tier threshold preset (lower bar for DDIM, more deterministic steps)
 3. Switch solver to `heun` on the Flow Sampler node for full correction on every step
 
 ### "Images have artifacts / weird patterns"
@@ -66,7 +66,7 @@ Try:
 All sigma values in the flow schedule are monotonically decreasing and mathematically valid. Artifacts are unlikely to come from the schedule itself.
 
 Try:
-1. Use the `heun` solver mode (all steps get Heun correction, set via the `solver` combo on the Flow Sampler node)
+1. Use the `heun` solver mode (all steps get Heun's 2nd order correction, set via the `solver` combo on the Flow Sampler node)
 2. Lower `s_churn` to 0 (deterministic)
 3. Ensure your model is compatible with the sigma range
 

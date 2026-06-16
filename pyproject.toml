@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "sd-flow"
+version = "0.1.0"
+description = "A fair-scheduling noise sampler for Stable Diffusion, adapted from the scx_flow CPU scheduler"
+authors = [
+    {name = "Galih Tama", email = "galpt@v.recipes"},
+]
+license = {text = "BSD 3-Clause"}
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["stable-diffusion", "sampler", "scheduler", "comfyui", "flow"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Developers",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["sd_flow*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

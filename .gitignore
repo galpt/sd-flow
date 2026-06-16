@@ -1,0 +1,36 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+build/
+dist/
+*.so
+*.pyd
+*.dll
+*.dylib
+
+# --- pytest ---
+.pytest_cache/
+
+# --- OS artifacts ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# --- IDE ---
+.vscode/
+.idea/
+*.sublime-*
+
+# --- Local-only (parent workspace) ---
+TODO-001.md
+references/
+
+# --- ComfyUI injection ---
+# These are copied into target ComfyUI, not stored in this repo
+inject-comfyui.log

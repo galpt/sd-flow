@@ -36,9 +36,8 @@ def _compute_step_tiers(sigmas: torch.Tensor, sigma_max: float) -> list[int]:
 
     This is used when the sampler receives a pre-computed sigma tensor
     (e.g. from ComfyUI's KSampler) and needs to determine tier info
-    on-the-fly.
+    on-the-fly.  BudgetAccumulator is imported at module scope above.
     """
-    from .budget import BudgetAccumulator
     accumulator = BudgetAccumulator()
     step_tiers: list[int] = []
     for i in range(len(sigmas) - 1):

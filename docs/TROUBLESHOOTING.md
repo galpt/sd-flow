@@ -66,13 +66,13 @@ Try:
 All sigma values in the flow schedule are monotonically decreasing and mathematically valid. Artifacts are unlikely to come from the schedule itself.
 
 Try:
-1. Use Heun solver instead of Euler (better correction)
+1. Use the `heun` solver mode (all steps get Heun correction)
 2. Lower `s_churn` to 0 (deterministic)
 3. Ensure your model is compatible with the sigma range
 
 ### "Generation is slower than expected"
 
-The flow schedule doesn't change the number of model evaluations — it only changes the sigma values. Performance should be identical to any other schedule with the same number of steps.
+The adaptive `flow` sampler uses fewer model evaluations than full Heun (about 20 vs 35 for 18 steps), so it should be faster. If you're comparing against Euler, use the `euler` solver mode for maximum speed. The `adapt` mode sits between Euler and Heun in both quality and speed.
 
 ## Installation Issues
 

@@ -53,7 +53,8 @@ if [ -x "$INJECT_SCRIPT" ]; then
     if bash "$INJECT_SCRIPT"; then
         echo ""
         echo "✅ sd-flow installed successfully!"
-        echo "   Restart ComfyUI to use FlowSigmaSchedule and FlowSampler nodes."
+        echo "   Restart ComfyUI — 'flow' appears in every KSampler dropdown,"
+        echo "   plus FlowSigmaSchedule/FlowSampler nodes for custom workflows."
         exit 0
     fi
 else

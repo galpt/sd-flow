@@ -220,16 +220,22 @@ class FlowSigmaSchedule:
             schedule = torch.cat([schedule, torch.zeros(pad)])
 
         # --- 8. Store per-step tier info for solver adaptation ---
-        # Map each sigma in the final schedule back to its tier
-        # by checking which tier's sigma range it falls into.
+        # Recompute tiers from the final schedule using the same budget
+        # accumulation that _compute_step_tiers uses in the sampler.
         self.step_tiers: list[int] = []
-        schedule_no_zero = schedule[:-1]  # exclude trailing 0
-        for sigma_val in schedule_no_zero:
-            assigned = 3  # default: deficit
-            for seg_tier, seg_lo, seg_hi in segments:
-                if seg_lo < sigma_val <= seg_hi:
-                    assigned = seg_tier.value
-                    break
-            self.step_tiers.append(assigned)
+        final_no_zero = schedule[:-1]  # exclude trailing 0
+        tier_map = {'priority': 0, 'normal': 1, 'low': 2, 'deficit': 3}
+        tier_acc = BudgetAccumulator(
+            budget_max=self.budget_max,
+            budget_min=self.budget_min,
+            tier_thresholds=self.tier_thresholds,
+        )
+        for i in range(len(final_no_zero) - 1):
+            delta = final_no_zero[i] - final_no_zero[i + 1]
+            budget = tier_acc.accumulate(delta, final_no_zero[i], self.sigma_max)
+            tier_str = tier_acc.classify_tier(budget)
+            self.step_tiers.append(tier_map[tier_str])
+        # Last step classification (before sigma=0): use current budget
+        self.step_tiers.append(tier_map[tier_acc.classify_tier()])
 
         return schedule

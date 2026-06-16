@@ -34,7 +34,7 @@ What happens:
 1. Detects your ComfyUI installation (checks common paths)
 2. Copies the custom node into `custom_nodes/sd-flow/`
 3. Installs the `sd_flow` Python package
-4. **Restart ComfyUI** — the `FlowSigmaSchedule` and `FlowSampler` nodes appear in `model/sampling/`
+4. **Restart ComfyUI** — the `flow` sampler appears in every built-in `KSampler` dropdown (just select it), and the `FlowSigmaSchedule` + `FlowSampler` nodes appear for `SamplerCustomAdvanced` workflows
 
 You'll see something like:
 
@@ -94,9 +94,9 @@ The sigma range [σ_max, σ_min] is divided into 4 tiers — Priority, Normal, L
 
 Based on their budget, timesteps are classified into tiers. A **rotating dispatch** cycle ensures each tier gets its fair share of steps, preventing any sigma range from being starved.
 
-**2. An ODE solver** (`FlowSampler`)
+**2. An adaptive ODE solver** (`FlowSampler`)
 
-Heun's 2nd order method (the same solver used by the Karras schedule) with optional stochastic churn. The solver is compatible with ComfyUI's `SamplerCustomAdvanced` workflow.
+The solver quality per step is determined by the flow budget tier: high-budget steps (PRIORITY/NORMAL) get Heun's 2nd order correction, while low-budget steps (LOW/DEFICIT) use faster Euler. This mirrors scx_flow's variable time-slice allocation. The solver also appears as `flow` in every built-in KSampler dropdown — no manual wiring needed.
 
 ### What's different from Karras?
 
@@ -116,7 +116,7 @@ sd-flow/
 │   ├── tiers.py                  Tier enum + sigma range segmentation
 │   ├── rotating_dispatch.py      4-phase rotating dispatch
 │   ├── schedule.py               FlowSigmaSchedule generator
-│   ├── sampler.py                FlowSampler (Heun/Euler ODE solver)
+│   ├── sampler.py                FlowSampler (adaptive flow ODE solver)
 │   └── utils.py                  Helpers (clamp, to_d, round_sigma)
 ├── integrations/comfyui/         ★ ComfyUI custom node
 │   ├── __init__.py               NODE_CLASS_MAPPINGS registration
@@ -125,7 +125,7 @@ sd-flow/
 │   ├── inject.sh                 Installation script
 │   └── remove.sh                 Removal script
 ├── examples/example.py           Standalone usage example
-├── tests/                        Unit tests (146 tests, all pass)
+├── tests/                        Unit tests (147 tests, all pass)
 ├── safe-install.sh               One-command installer
 └── pyproject.toml                Zero runtime dependencies
 ```
@@ -181,8 +181,8 @@ schedule = FlowSigmaSchedule(
 )
 sigmas = schedule.generate_schedule()
 
-# Custom sampler
-sampler = FlowSampler(solver="heun", s_churn=2.0, s_noise=1.5)
+# Custom sampler (default: adaptive "flow" solver)
+sampler = FlowSampler(solver="flow", s_churn=2.0, s_noise=1.5)
 result = sampler.sample(denoiser_fn, latents)
 ```
 

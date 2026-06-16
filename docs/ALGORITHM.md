@@ -88,13 +88,14 @@ For each sigma transition `σ_i → σ_{i+1}`:
 
 ```
 Δσ = σ_i − σ_{i+1}
-refill = (Δσ / σ_max) × (σ_i / σ_max)
+refill = (Δσ / σ_max) × (σ_i / σ_max) × 4.0
 budget[i+1] = clamp(budget[i] + refill, B_min, B_max)
 ```
 
 Where:
 - `B_max = 2.0` (maximum budget ceiling)
 - `B_min = −0.5` (minimum budget floor, allows slight deficit)
+- The `× 4.0` scale factor ensures cumulative budget naturally spans `[0, BUDGET_MAX]`, giving meaningful separation between all 4 tiers.
 
 Large sigma drops at high noise levels generate the most budget — early denoising steps have the most "creative freedom."
 

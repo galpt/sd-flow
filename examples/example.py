@@ -39,9 +39,9 @@ def main():
     print(f"   Schedule shape: {list(sigmas.shape)}")
     print(f"   Sigmas: {[f'{float(v):.4f}' for v in sigmas]}")
 
-    # ── Create the flow sampler ─────────────────────────────────────────
-    print("\n2. Creating flow sampler (Heun's 2nd order)...")
-    sampler = FlowSampler(solver="heun")
+    # ── Create the flow sampler (adaptive solver) ──────────────────────
+    print("\n2. Creating flow sampler (adaptive flow solver)...")
+    sampler = FlowSampler(solver="flow")
 
     # ── Run a dummy sampling loop ───────────────────────────────────────
     print("\n3. Running dummy sampling...")

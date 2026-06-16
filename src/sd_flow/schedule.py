@@ -114,72 +114,46 @@ class FlowSigmaSchedule:
         base = (max_inv + ramp * (min_inv - max_inv)) ** self.rho
         base = torch.cat([base, torch.zeros(1)])  # <-- num_steps + 1 points
 
-        # --- 3. budget / tier for each transition ---
+        # --- 3. compute per-step budget/tier for solver adaptation only ---
         _, tiers = self._budget_for_base_schedule(base)
 
-        tier_map = {'priority': 0, 'normal': 1, 'low': 2, 'deficit': 3}
-        tier_idx = [tier_map[t] for t in tiers]  # length = num
-
-        # --- 4. initial step counts per tier ---
-        init_counts = [tier_idx.count(t) for t in range(4)]
-
-        # --- 5. rotating dispatch re-weighting ---
-        # Final counts: each tier gets at least 1 if it has a viable range.
-        final_counts = [0, 0, 0, 0]
-
-        # Guarantee each tier at least 1 step (if its range > 0)
+        # --- 4. distribute steps fairly across all 4 tiers ---
+        # Each tier gets floor(num/4) steps.  Remaining (num % 4) steps
+        # are distributed via rotating dispatch for max fairness.
+        # This ensures no sigma range is starved, regardless of budget.
+        viable = []
         for ti in range(4):
             seg_lo = segments[ti][1]
             seg_hi = segments[ti][2]
             if seg_hi - seg_lo > 1e-6:
-                final_counts[ti] = 1
+                viable.append(ti)
 
-        already_guaranteed = sum(final_counts)
-        remaining_to_assign = num - already_guaranteed
+        num_viable = len(viable)
+        if num_viable == 0:
+            viable = [0, 1, 2, 3]
+            num_viable = 4
 
-        if remaining_to_assign > 0:
-            # Rotating dispatch: distribute remaining steps
+        base_per_tier = num // num_viable
+        extra_steps = num - base_per_tier * num_viable
+
+        final_counts = [0, 0, 0, 0]
+        for ti in viable:
+            final_counts[ti] = base_per_tier
+
+        # Distribute extra steps via rotating dispatch
+        if extra_steps > 0:
             rotator = DispatchRotator(n_tiers=4)
-            # Each tier's "deserved" additional steps proportional to initial count
-            extra_deserved = [
-                max(0, init_counts[ti] - 1) for ti in range(4)
-            ]
-            # Pad to make total match remaining_to_assign
-            total_deserved = sum(extra_deserved)
-            if total_deserved == 0:
-                # All tiers had 0 or 1 initial steps; distribute evenly
-                extra_deserved = [1] * 4
-                total_deserved = 4
-
-            # Normalise to remaining_to_assign
-            extra = [int(d * remaining_to_assign / total_deserved) for d in extra_deserved]
-
-            # Distribute rounding errors via rotating dispatch
-            deficit = remaining_to_assign - sum(extra)
-            assigned = list(extra)
-            rotator = DispatchRotator(n_tiers=4)
-            for _ in range(deficit):
+            for _ in range(extra_steps):
                 order = rotator.current_order()
                 for ti in order:
-                    if assigned[ti] > 0 or init_counts[ti] > 0:
-                        assigned[ti] += 1
+                    if ti in viable:
+                        final_counts[ti] += 1
                         break
                 rotator.advance()
 
-            final_counts = [final_counts[ti] + assigned[ti] for ti in range(4)]
-
-        # Clip to num in case of overshoot
-        total = sum(final_counts)
-        if total > num:
-            # Trim from deficit tier first
-            for ti in [3, 2, 1, 0]:
-                while total > num and final_counts[ti] > 0:
-                    final_counts[ti] -= 1
-                    total -= 1
-        elif total < num:
-            final_counts[3] += num - total
-
         # --- 6. generate steps per tier region ---
+        # To avoid duplicate boundary values when tiers' ranges meet,
+        # shrink each tier's hi slightly by 1 ppm except for PRIORITY.
         tier_groups: list[torch.Tensor] = []
         tier_order = [Tier.PRIORITY, Tier.NORMAL, Tier.LOW, Tier.DEFICIT]
 
@@ -190,7 +164,12 @@ class FlowSigmaSchedule:
                 continue
             for seg_tier, seg_lo, seg_hi in segments:
                 if seg_tier == tier:
-                    steps = _karras_in_range(count, seg_lo, seg_hi, self.rho)
+                    _lo = seg_lo
+                    _hi = seg_hi
+                    # Shrink hi by 1 ppm to avoid exact boundary overlap
+                    if ti > 0:  # not PRIORITY
+                        _hi = seg_lo + (seg_hi - seg_lo) * 0.999999
+                    steps = _karras_in_range(count, _lo, _hi, self.rho)
                     tier_groups.append(steps)
                     break
 
@@ -203,6 +182,7 @@ class FlowSigmaSchedule:
         schedule = torch.cat(tier_groups)
         # Sort ensures monotonic decreasing
         schedule = torch.sort(schedule, descending=True).values
+
         # Guarantee first value == sigma_max
         schedule[0] = self.sigma_max
         # Guarantee last non-zero value == sigma_min
@@ -212,13 +192,26 @@ class FlowSigmaSchedule:
         # Append the zero endpoint
         schedule = torch.cat([schedule, torch.zeros(1)])
 
-        # Trim to num_steps + 1
+        # Convert to float32 for k-diffusion compatibility
+        schedule = schedule.to(torch.float32)
+
+        # Final length check: trim or pad to num_steps + 1
         if len(schedule) > num + 1:
             schedule = schedule[:num + 1]
-        elif len(schedule) < num + 1:
-            # Pad with interpolated values
+        elif len(schedule) < num + 1 and len(schedule) > 1:
+            # Small deficit can happen with very low num_steps
             pad = num + 1 - len(schedule)
-            schedule = torch.cat([schedule, torch.zeros(pad)])
+            # Interpolate between last real sigma and sigma_min
+            last_real = float(schedule[-2])
+            for j in range(1, pad + 1):
+                fill = last_real * (1 - j / (pad + 1))
+                if fill < self.sigma_min:
+                    fill = self.sigma_min
+                schedule = torch.cat([
+                    schedule[:-1],
+                    torch.tensor([fill], dtype=schedule.dtype),
+                    schedule[-1:],
+                ])
 
         # --- 8. Compute per-step tier info for solver adaptation ---
         # Budget accumulation uses the SAME BudgetAccumulator params as

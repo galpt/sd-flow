@@ -76,9 +76,12 @@ class FlowSigmaSchedule:
 
         # --- 1. linear sigma schedule ---
         base = torch.linspace(smax, smin, num, dtype=torch.float32)
+        sigmas = torch.cat([base, torch.zeros(1)])  # trailing 0
 
         # --- 2. compute per-step tiers from budget accumulation ---
-        _, self.step_tiers = self._budget_for_base_schedule(base)
+        # Pass the full schedule (including trailing 0) so every
+        # transition including the final sigma->0 gets a tier label.
+        _, self.step_tiers = self._budget_for_base_schedule(sigmas)
 
         # --- 3. ensure every viable tier has at least 1 correction step ---
         segments = segment_sigma_range(smin, smax)
@@ -92,8 +95,5 @@ class FlowSigmaSchedule:
                         if self.step_tiers[i] != ti:
                             self.step_tiers[i] = ti
                             break
-
-        # --- 4. append trailing 0 ---
-        sigmas = torch.cat([base, torch.zeros(1)])
 
         return sigmas

@@ -292,10 +292,9 @@ class FlowSampler:
                 num_steps or schedule.num_steps,
                 sigma_min or schedule.sigma_min,
                 sigma_max or schedule.sigma_max,
-                schedule.rho,
-                schedule.budget_max,
-                schedule.budget_min,
-                schedule.tier_thresholds,
+                budget_max=schedule.budget_max,
+                budget_min=schedule.budget_min,
+                tier_thresholds=schedule.tier_thresholds,
             )
 
         sigmas = schedule.generate_schedule()

@@ -89,7 +89,7 @@ sd-flow is two things:
 
 **1. A sigma schedule generator** (`FlowSigmaSchedule`)
 
-Uses linear sigma spacing (same as ComfyUI's "Normal" scheduler). A "budget" is tracked across sigma transitions: when sigma drops steeply (early steps), budget accumulates. When sigma changes slowly (late steps), budget drains. Based on their accumulated budget, timesteps are classified into 4 tiers — Priority, Normal, Low, Deficit — which determine the solver quality for that step.
+Uses budget-driven step warping: each step's budget tier compresses (PRIORITY) or expands (DEFICIT) the sigma spacing, producing more resolution where the noise dynamics demand it. A "budget" is tracked across sigma transitions: when sigma drops steeply (early steps), budget accumulates. When sigma changes slowly (late steps), budget drains. Based on their accumulated budget, timesteps are classified into 4 tiers — Priority, Normal, Low, Deficit — which determine the solver quality for that step.
 
 **2. An adaptive ODE solver** (`FlowSampler`)
 
@@ -100,7 +100,7 @@ The solver quality per step is determined by the flow budget tier: high-budget s
 | Aspect | Euler / Heun / DDIM | sd-flow `flow` sampler |
 |--------|---------------------|------------------------|
 | Solver behavior | Same for every step | Adaptive per budget tier (PRIORITY→Heun, DEFICIT→Euler) |
-| Sigma schedule | Fixed formula (Karras, Normal, etc.) | Linear sigma spacing (like Normal) |
+| Sigma schedule | Fixed formula (Karras, Normal, etc.) | Budget-driven warping (adaptive spacing) |
 | Control | Algorithm choice only | Budget thresholds + tier classification |
 | Starvation protection | None | Every tier gets ≥1 correction step |
 | Determinism | Yes | Yes |

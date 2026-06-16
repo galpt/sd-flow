@@ -16,7 +16,7 @@ adaptive sampler.
 import torch
 
 from .budget import BudgetAccumulator
-from .tiers import Tier, segment_sigma_range
+from .tiers import segment_sigma_range
 
 
 class FlowSigmaSchedule:
@@ -42,7 +42,6 @@ class FlowSigmaSchedule:
         num_steps: int = 18,
         sigma_min: float = 0.002,
         sigma_max: float = 80.0,
-        rho: float = 7.0,
         budget_max: float = 2.0,
         budget_min: float = -0.5,
         tier_thresholds: tuple = (1.5, 1.0, 0.5),
@@ -50,7 +49,6 @@ class FlowSigmaSchedule:
         self.num_steps = num_steps
         self.sigma_min = sigma_min
         self.sigma_max = sigma_max
-        self.rho = rho
         self.budget_max = budget_max
         self.budget_min = budget_min
         self.tier_thresholds = tier_thresholds

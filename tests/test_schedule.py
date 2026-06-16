@@ -17,20 +17,18 @@ class TestFlowSigmaScheduleInit:
         assert sched.num_steps == 18
         assert sched.sigma_min == 0.002
         assert sched.sigma_max == 80.0
-        assert sched.rho == 7.0
         assert sched.budget_max == 2.0
         assert sched.budget_min == -0.5
         assert sched.tier_thresholds == (1.5, 1.0, 0.5)
 
     def test_custom_construction(self):
         sched = FlowSigmaSchedule(
-            num_steps=25, sigma_min=0.01, sigma_max=100.0, rho=5.0,
+            num_steps=25, sigma_min=0.01, sigma_max=100.0,
             budget_max=3.0, budget_min=-1.0, tier_thresholds=(2.0, 1.5, 0.8)
         )
         assert sched.num_steps == 25
         assert sched.sigma_min == 0.01
         assert sched.sigma_max == 100.0
-        assert sched.rho == 5.0
         assert sched.budget_max == 3.0
         assert sched.budget_min == -1.0
         assert sched.tier_thresholds == (2.0, 1.5, 0.8)
@@ -136,7 +134,7 @@ class TestFlowSigmaScheduleDeterminism:
 
     def test_deterministic_custom_params(self):
         sched = FlowSigmaSchedule(
-            num_steps=10, sigma_min=0.01, sigma_max=50.0, rho=5.0
+            num_steps=10, sigma_min=0.01, sigma_max=50.0
         )
         sigmas1 = sched.generate_schedule()
         sigmas2 = sched.generate_schedule()

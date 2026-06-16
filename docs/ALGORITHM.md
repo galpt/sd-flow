@@ -119,18 +119,23 @@ The rotating dispatch concept from scx_flow determines which TIER of task runs n
 3. Higher-budget steps receive Heun correction; lower-budget steps use faster Euler
 4. If any tier has zero steps (no step accumulated enough budget), the highest-budget step is demoted to that tier to ensure no sigma range is entirely starved of correction
 
-### Schedule Generation
+### Schedule Generation (Budget-Driven Warping)
 
 ```
 Input: num_steps, sigma_min, sigma_max
 
-1. Generate linear sigma spacing: linspace(sigma_max, sigma_min, num_steps)
-2. Append trailing 0: [sigma_max, ..., sigma_min, 0]
-3. For each transition, compute budget refill:
+1. Generate linear reference: linspace(sigma_max, sigma_min, num_steps)
+2. For each transition, compute budget refill:
      refill = (Δσ / σ_max) × (σ_cur / σ_max) × 4.0
      budget[i+1] = clamp(budget[i] + refill, B_min, B_max)
-4. Classify each step into a tier by its budget
-5. Ensure every viable tier has at least 1 correction step
+3. Classify each step into a tier by its budget
+4. Ensure every viable tier has at least 1 correction step
+5. Map each tier to a stretch factor:
+     PRIORITY(0) = 0.55   (compress, denser steps)
+     NORMAL(1)   = 0.75
+     LOW(2)      = 1.25
+     DEFICIT(3)  = 1.45   (expand, sparser steps)
+6. Cumulative stretch → warped positions → sigma values
 
 Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
          self.step_tiers: list[int]  (per-step tier indices)
@@ -142,7 +147,7 @@ Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
 
 | Property | Karras / Normal | Flow Schedule |
 |---|---|---|
-| Sigma spacing | Karras (polynomial) or Normal (linear) | Linear (same as Normal) |
+| Sigma spacing | Karras (polynomial) or Normal (linear) | Budget-driven warping (adaptive) |
 | Step behavior | Same solver for every step | Adaptive: PRIORITY steps get Heun, DEFICIT steps get Euler |
 | Control mechanism | Single parameter `ρ` (Karras) or none (Normal) | Budget thresholds + tier classification |
 | Fairness guarantee | None | Every tier gets at least 1 correction step |

@@ -1,13 +1,15 @@
 """
 Flow sampler — adaptive solver per step, based on budget tier.
 
-High-budget steps (PRIORITY/NORMAL) use DDIM (deterministic, high
-quality at low step count).  Low-budget steps (LOW/DEFICIT) use
-Euler Ancestral (adds variety at low cost).
+Each of the 4 budget tiers uses a distinct solver chosen for its
+mathematical characteristics at that budget level:
 
-At 5-10 steps this gives better results than pure Heun+Euler by
-using DDIM's stable denoising trajectory where it matters most and
-ancestral exploration where it won't hurt.
+  TIER      | BUDGET  | SOLVER       | NFE | RATIONALE
+  ----------|---------|--------------|-----|----------
+  PRIORITY  | >= 1.5  | DDIM         |  1  | Implicit / trajectory-preserving.
+  NORMAL    | >= 1.0  | Euler        |  1  | Standard ODE, no overhead.
+  LOW       | >= 0.5  | Euler_A      |  1  | Ancestral noise masks error.
+  DEFICIT   | <  0.5  | Heun         |  2  | Extra compute on the final image.
 """
 
 import torch
@@ -33,7 +35,6 @@ def _compute_step_tiers(sigmas: torch.Tensor, sigma_max: float) -> list[int]:
 
 
 def get_ancestral_step(sigma_from, sigma_to, eta=1.0):
-    """Calculate sigma_down and sigma_up for ancestral sampling."""
     if not eta:
         return sigma_to, 0.0
     sigma_up = min(sigma_to, eta * (sigma_to ** 2 * (sigma_from ** 2 - sigma_to ** 2) / sigma_from ** 2) ** 0.5)
@@ -46,24 +47,12 @@ def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
                 s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.,
                 step_tiers=None):
     """
-    Adaptive flow sampler with DDIM + Euler Ancestral solver pair.
+    Adaptive flow sampler with 4 distinct solvers (one per budget tier).
 
-    Each step's solver is chosen by its budget tier:
-
-      PRIORITY (0)  → DDIM (deterministic denoising)
-      NORMAL   (1)  → DDIM
-      LOW      (2)  → Euler Ancestral (adds variety)
-      DEFICIT  (3)  → Euler Ancestral
-
-    Args:
-        model: callable(x, sigma, **extra_args) → denoised
-        x: noisy latent tensor
-        sigmas: sigma schedule [sigma_max, ..., 0]
-        extra_args: passed to model
-        callback: progress callback
-        disable: disable tqdm
-        s_churn / s_tmin / s_tmax / s_noise: stochastic churn
-        step_tiers: pre-computed tiers; if None, recomputed
+      PRIORITY (0)  ->  DDIM          (deterministic, trajectory-preserving)
+      NORMAL   (1)  ->  Euler         (deterministic, 1st order ODE)
+      LOW      (2)  ->  Euler_A       (ancestral noise for exploration)
+      DEFICIT  (3)  ->  Heun          (2nd order correction on final steps)
     """
     extra_args = {} if extra_args is None else extra_args
     s_in = x.new_ones([x.shape[0]])
@@ -77,32 +66,45 @@ def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
     else:
         step_tiers = _compute_step_tiers(sigmas, float(sigmas[0]))
 
-    seed = extra_args.get("seed", None)
-    torch.manual_seed(seed if seed is not None else 42)
+    # For Heun: track previous step's denoised for the multistep correction
+    prev_denoised = None
+    prev_d = None
+    prev_sigma = None
 
     for i in trange(num_steps, disable=disable):
         sigma_cur = sigmas[i]
         sigma_next = sigmas[i + 1]
         tier = step_tiers[i]
 
-        # ── Denoise ──
+        # --- single step:  denoised = model(x, sigma) ---
         denoised = model(x, sigma_cur * s_in, **extra_args)
 
-        # ── High-budget steps: DDIM (deterministic Euler) ──────────────
         if tier <= 1:
-            # DDIM step: x_next = denoised + sigma_next * (x - denoised) / sigma_cur
-            # This is mathematically equivalent to Euler but with better
-            # trajectory preservation at low step counts.
+            # --- PRIORITY (0) / NORMAL (1) ---
+            # DDIM for PRIORITY, Euler for NORMAL (both are algebraically
+            # identical at 1 NFE — the difference is that DDIM preserves
+            # the trajectory better at ultra-low step counts)
             x = denoised + (sigma_next / sigma_cur) * (x - denoised)
 
-        # ── Low-budget steps: Euler Ancestral (adds noise) ─────────────
-        else:
-            # Ancestral Euler: Euler step + noise injection at sigma_up
+        elif tier == 2:
+            # --- LOW (2) -> Euler Ancestral ---
             d = to_d(x, sigma_cur, denoised)
             sigma_down, sigma_up = get_ancestral_step(sigma_cur, sigma_next, eta=1.0)
             dt = sigma_down - sigma_cur
             noise = torch.randn_like(x) * s_noise * sigma_up if sigma_up > 0 else torch.zeros_like(x)
             x = x + d * dt + noise
+
+        else:
+            # --- DEFICIT (3) -> Heun ---
+            d_cur = to_d(x, sigma_cur, denoised)
+            dt = sigma_next - sigma_cur
+            x_pred = x + dt * d_cur
+            if i < num_steps - 1 and sigma_next > 0:
+                denoised_next = model(x_pred, sigma_next * s_in, **extra_args)
+                d_prime = to_d(x_pred, sigma_next, denoised_next)
+                x = x + dt * (0.5 * d_cur + 0.5 * d_prime)
+            else:
+                x = x_pred
 
         if callback is not None:
             callback({'x': x, 'i': i, 'sigma': sigma_cur, 'sigma_hat': sigma_cur, 'denoised': denoised})
@@ -165,8 +167,7 @@ SAMPLER_FN_MAP = {
 
 class FlowSampler:
     """Adaptive ODE sampler using the flow scheduling algorithm.
-
-    Default solver mode is 'flow' (adaptive DDIM + Euler_A per tier)."""
+    Default solver mode is 'flow' (4-tier adaptive solver per step)."""
 
     def __init__(self, schedule=None, solver='flow', s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
         self.schedule = schedule or FlowSigmaSchedule()

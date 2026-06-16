@@ -31,18 +31,23 @@ try:
     _k_sampling.sample_flow_euler = sample_flow_euler
     _sd_flow_logger.info("Injected sample_flow (adaptive) + legacy variants into k_diffusion_sampling")
 
-    # 2. Register names in KSAMPLER_NAMES (populates KSampler dropdown).
+    # 2. Register names in KSAMPLER_NAMES.
     #    "flow" is the primary (fully adaptive) sampler.
     for _name in ("flow", "flow_heun", "flow_euler"):
         if _name not in _samplers.KSAMPLER_NAMES:
             _samplers.KSAMPLER_NAMES.append(_name)
 
-    # 3. SAMPLER_NAMES is a static copy built at import time:
-    #    KSAMPLER_NAMES + ["ddim", "uni_pc", "uni_pc_bh2"]
-    #    Rebuild it so the UI sees our new entries.
-    _extra_non_k = [n for n in _samplers.SAMPLER_NAMES
-                    if n not in _samplers.KSAMPLER_NAMES]
-    _samplers.SAMPLER_NAMES = list(_samplers.KSAMPLER_NAMES) + _extra_non_k
+    # 3. Append to SAMPLER_NAMES IN-PLACE.
+    #    CRITICAL: KSampler.SAMPLERS references the SAME list object as
+    #    SAMPLER_NAMES at class definition time (samplers.py line 1382).
+    #    If we reassign SAMPLER_NAMES to a new list, KSampler.SAMPLERS
+    #    still points to the old list and the dropdown won't update.
+    #    In-place append preserves the shared reference so every node
+    #    that uses KSampler.SAMPLERS -- including base KSampler,
+    #    FaceDetailer (Impact Pack), rgthree, etc. -- sees our samplers.
+    for _name in ("flow", "flow_heun", "flow_euler"):
+        if _name not in _samplers.SAMPLER_NAMES:
+            _samplers.SAMPLER_NAMES.append(_name)
 
     _sd_flow_logger.info("Registered 'flow' sampler in KSampler dropdowns")
 except Exception as _exc:

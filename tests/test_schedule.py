@@ -163,7 +163,7 @@ class TestFlowSigmaScheduleEdgeCases:
 
     def test_fallback_when_tier_sigma_groups_empty(self):
         """Test that generate_schedule handles the case where no tier
-        groups are generated (fallback to base Karras + trailing zero)."""
+        groups are generated (fallback to base linear + trailing zero)."""
         # Use a configuration that still generates valid output
         sched = FlowSigmaSchedule(num_steps=18)
         sigmas = sched.generate_schedule()

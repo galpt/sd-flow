@@ -287,7 +287,7 @@ class TestFlowSamplerIntegration:
         assert result.shape == x.shape
 
     @torch.no_grad()
-    def test_flow_sampler_sample_heun(self):
+    def test_flow_sampler_sample_flow(self):
         """FlowSampler.sample() with default adaptive flow solver."""
         def dummy_denoiser(x, sigma, **kwargs):
             return x * 0.5

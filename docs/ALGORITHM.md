@@ -80,7 +80,7 @@ Both problems share a fundamental structure: **allocating limited compute across
 | Tasks compete for CPU time | Timesteps compete for ODE evaluations |
 | Budget accumulates during sleep | Budget accumulates across sigma transitions |
 | Tier classification by budget level | Tier classification by accumulated budget |
-| Budget determines time-slice length | Budget determines solver order (Heun vs Euler) |
+| Budget determines time-slice length | Budget determines solver (DDIM / Euler / Euler_A / Heun) |
 
 ### The Flow Budget for Diffusion
 
@@ -106,9 +106,9 @@ Each timestep is classified by its budget:
 | Tier | Budget | Effect on ODE Solver |
 |---|---|---|---|
 | PRIORITY | ≥ 1.5 | DDIM step (1 NFE, deterministic) |
-| NORMAL | ≥ 1.0 | DDIM step (1 NFE, deterministic) |
+| NORMAL | ≥ 1.0 | Euler step (1 NFE, deterministic) |
 | LOW | ≥ 0.5 | Euler Ancestral (1 NFE + noise) |
-| DEFICIT | < 0.5 | Euler Ancestral (1 NFE + noise) |
+| DEFICIT | < 0.5 | Heun step (2 NFE, 2nd-order correction) |
 
 ### Per-Step Tier Labels (Not Rotating Dispatch)
 
@@ -116,7 +116,7 @@ The rotating dispatch concept from scx_flow determines which TIER of task runs n
 
 1. Each sigma transition `σ_i → σ_{i+1}` generates a budget refill proportional to the sigma drop
 2. The cumulative budget determines the step's tier (PRIORITY/NORMAL/LOW/DEFICIT)
-3. Higher-budget steps use DDIM (deterministic); lower-budget steps use Euler Ancestral (adds noise)
+3. Higher-budget steps use DDIM (deterministic); mid-budget steps use Euler (deterministic) or Euler Ancestral (adds noise); deficit steps use Heun (extra compute)
 4. If any tier has zero steps (no step accumulated enough budget), the highest-budget step is demoted to that tier to ensure no sigma range is entirely starved of correction
 
 ### Schedule Generation

@@ -4,9 +4,8 @@ ComfyUI custom node: FlowSamplerNode.
 Creates a KSAMPLER wrapping the flow ODE solver. The output plugs
 directly into the ``sampler`` input of ``SamplerCustomAdvanced``.
 
-The default "adapt" mode uses DDIM for high-budget steps (PRIORITY/NORMAL)
-and Euler Ancestral for low-budget steps (LOW/DEFICIT), optimising for
-quality at 5-10 steps.
+The default "adapt" mode selects the solver per budget tier:
+PRIORITY → DDIM, NORMAL → Euler, LOW → Euler Ancestral, DEFICIT → Heun.
 """
 
 from comfy_api.latest import io
@@ -18,9 +17,9 @@ class FlowSamplerNode(io.ComfyNode):
     """
     Creates a Flow Sampler that uses the adaptive solver.
 
-    Default "adapt" mode: PRIORITY/NORMAL steps use DDIM (deterministic,
-    high quality at low step count), LOW/DEFICIT steps use Euler Ancestral
-    (adds variety).  Fall back to "heun" or "euler" for fixed-mode.
+    Default "adapt" mode selects the solver per budget tier:
+    PRIORITY → DDIM, NORMAL → Euler, LOW → Euler Ancestral, DEFICIT → Heun.
+    Fall back to "heun" or "euler" for fixed-mode.
     Works with any sigma schedule.
     """
 

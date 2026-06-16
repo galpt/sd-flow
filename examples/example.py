@@ -40,7 +40,7 @@ def main():
 
     # ── Create the flow sampler (adaptive solver) ──────────────────────
     print("\n2. Creating flow sampler (adaptive flow solver)...")
-    sampler = FlowSampler(solver="flow")
+    sampler = FlowSampler(solver="flow", schedule=schedule)
 
     # ── Run a dummy sampling loop ───────────────────────────────────────
     print("\n3. Running dummy sampling...")
@@ -56,6 +56,10 @@ def main():
         denoiser_fn=dummy_denoiser,
         latents=latents,
     )
+
+    # The schedule used matches what was displayed above
+    expected_len = len(sigmas) - 1  # num_steps
+    assert sampler.schedule.num_steps == 10, "Example should use 10-step schedule"
 
     print(f"   Input shape:  {list(latents.shape)}")
     print(f"   Output shape: {list(result.shape)}")

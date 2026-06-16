@@ -7,8 +7,8 @@ every built-in KSampler's dropdowns -- no workflow changes needed.
 
 The ``flow`` sampler is a full adaptation of scx_flow's budget-driven
 scheduling: each step's solver is determined by its budget tier
-(PRIORITY→DDIM, DEFICIT→Euler Ancestral), mirroring scx_flow's
-variable time-slice allocation.
+(PRIORITY→DDIM, NORMAL→Euler, LOW→Euler Ancestral, DEFICIT→Heun),
+mirroring scx_flow's variable time-slice allocation.
 
 The ``flow`` scheduler uses linear sigma spacing with per-step
 budget-tier labels.  Combined with ``sampler=flow`` it delivers the

@@ -43,23 +43,23 @@ And check the error message. Open an issue with the full traceback.
 
 ## Quality Issues
 
-### "Images look different from Karras schedule"
+### "Images look different from what I expected"
 
-**That's expected.** The flow schedule distributes steps differently across sigma tiers. This is by design — the rotating dispatch prevents any sigma range from being starved, which produces a different (not worse or better) step distribution.
+**That's expected.** The `flow` sampler uses an adaptive solver per step — some steps receive full Heun correction while others use faster Euler. This produces a different result from fixed-solver samplers.
 
-Try switching between tier threshold presets:
-- **Default**: Balanced
-- **Aggressive**: More steps at high noise (closer to Karras behavior)
-- **Gentle**: More steps at low noise
+Try switching between tier threshold presets on the `FlowSigmaSchedule` node:
+- **Default**: Balanced correction distribution
+- **Aggressive**: Fewer steps get Heun correction (higher bar)
+- **Gentle**: More steps get Heun correction (lower bar)
 
 ### "Images look blurry / lack detail"
 
-The flow schedule may allocate fewer steps to the very-low-noise range (where fine details are refined) compared to the Karras schedule with ρ=7.
+The `flow` sampler uses Euler for LOW/DEFICIT budget tiers (fewer corrections), which may produce slightly softer results at very low step counts.
 
 Try:
 1. Increase `num_steps` (e.g., 25–30 instead of 18)
-2. Use the "Gentle" tier threshold preset
-3. Decrease `rho` (e.g., 5.0) for more uniform step spacing
+2. Use the "Gentle" tier threshold preset (lowers bar for Heun correction)
+3. Switch solver to `heun` on the Flow Sampler node for full correction on every step
 
 ### "Images have artifacts / weird patterns"
 
@@ -72,7 +72,7 @@ Try:
 
 ### "Generation is slower than expected"
 
-The adaptive `flow` sampler uses fewer model evaluations than full Heun (about 20 vs 35 for 18 steps), so it should be faster. If you're comparing against Euler, use the `euler` solver mode for maximum speed. The `adapt` mode sits between Euler and Heun in both quality and speed.
+The adaptive `flow` sampler uses fewer model evaluations than full Heun (about 29 vs 35 for 18 steps with default thresholds), so it can be faster depending on your tier distribution. Use the `euler` solver mode for maximum speed, `heun` for maximum quality. The `adapt` mode sits between Euler and Heun.
 
 ## Installation Issues
 
@@ -105,7 +105,7 @@ from sd_flow import FlowSigmaSchedule, FlowSampler
 
 schedule = FlowSigmaSchedule(num_steps=20)
 sigmas = schedule.generate_schedule()
-sampler = FlowSampler(solver="heun")
+sampler = FlowSampler(solver="flow")
 result = sampler.sample(denoiser_fn, latents)
 ```
 
@@ -126,7 +126,7 @@ The sd-flow package has zero pip dependencies — only the integrations require 
 
 | Limitation | Workaround |
 |---|---|
-| No DDIM/DPM++ solver | Use Heun or Euler solver |
+| No dedicated DDIM/DPM++ sampler in the flow package | Use the built-in DDIM/DPM++ samplers with the flow scheduler — the sigma schedule is compatible with any sampler |
 | No training-time support | v0.1 is inference-only |
 | No A1111 automated install | Manual pip install + custom script |
 | No precomputed schedule profiles | Generate schedules programmatically |

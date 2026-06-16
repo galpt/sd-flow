@@ -76,7 +76,7 @@ Where `D(x, σ)` is the denoiser network output.
 Both problems share a fundamental structure: **allocating limited compute across multiple competing entities**.
 
 | CPU Scheduling | Diffusion Sampling |
-|---|---|---|
+|---|---|
 | Tasks compete for CPU time | Timesteps compete for ODE evaluations |
 | Budget accumulates during sleep | Budget accumulates across sigma transitions |
 | Tier classification by budget level | Tier classification by accumulated budget |
@@ -104,7 +104,7 @@ Large sigma drops at high noise levels generate the most budget — early denois
 Each timestep is classified by its budget:
 
 | Tier | Budget | Effect on ODE Solver |
-|---|---|---|---|
+|---|---|---|
 | PRIORITY | ≥ 1.5 | Full Heun correction (2 NFEs) |
 | NORMAL | ≥ 1.0 | Full Heun correction (2 NFEs) |
 | LOW | ≥ 0.5 | Euler prediction only (1 NFE) |
@@ -153,7 +153,7 @@ Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
 ## 5. Parameter Reference
 
 | Parameter | Default | Range | Effect |
-|---|---|---|---|---|
+|---|---|---|---|
 | `num_steps` | 18 | [1, 10000] | Total number of sampling steps |
 | `sigma_min` | 0.002 | (0, sigma_max) | Lowest noise level |
 | `sigma_max` | 80.0 | (sigma_min, ∞) | Highest noise level |
@@ -164,7 +164,7 @@ Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
 ### Tier Threshold Presets
 
 | Preset | Priority | Normal | Low | Effect |
-|---|---|---|---|---|---|
+|---|---|---|---|---|
 | Default | 1.5 | 1.0 | 0.5 | Balanced correction distribution |
 | Aggressive | 2.0 | 1.5 | 1.0 | Fewer correction steps (higher bar for Heun) |
 | Gentle | 1.2 | 0.8 | 0.4 | More correction steps (lower bar for Heun) |

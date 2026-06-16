@@ -19,7 +19,7 @@ class FlowSigmaScheduleNode(io.ComfyNode):
     Uses linear sigma spacing with per-step budget-tier labels for the
     adaptive solver. The sigma values are compatible with any sampler;
     the tier labels are read by the ``flow`` sampler to decide which
-    steps get Heun correction vs Euler.
+    steps get DDIM (high budget) vs Euler Ancestral (low budget).
     """
 
     @classmethod

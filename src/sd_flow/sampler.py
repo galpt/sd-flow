@@ -1,15 +1,9 @@
 """
 Flow sampler — adaptive solver per step, based on budget tier.
 
-Uses a primary/secondary solver pair per tier, with graceful fallback:
-
-  High-budget steps (PRIORITY/NORMAL):
-    Primary: DDIM  (deterministic, high quality at low step count)
-    Fallback: Heun (if DDIM not available)
-
-  Low-budget steps (LOW/DEFICIT):
-    Primary: Euler Ancestral  (adds variety, good for exploration)
-    Fallback: Euler (if Euler_A not available)
+High-budget steps (PRIORITY/NORMAL) use DDIM (deterministic, high
+quality at low step count).  Low-budget steps (LOW/DEFICIT) use
+Euler Ancestral (adds variety at low cost).
 
 At 5-10 steps this gives better results than pure Heun+Euler by
 using DDIM's stable denoising trajectory where it matters most and
@@ -84,7 +78,7 @@ def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
         step_tiers = _compute_step_tiers(sigmas, float(sigmas[0]))
 
     seed = extra_args.get("seed", None)
-    torch.manual_seed(seed or 42)
+    torch.manual_seed(seed if seed is not None else 42)
 
     for i in trange(num_steps, disable=disable):
         sigma_cur = sigmas[i]
@@ -107,7 +101,7 @@ def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
             d = to_d(x, sigma_cur, denoised)
             sigma_down, sigma_up = get_ancestral_step(sigma_cur, sigma_next, eta=1.0)
             dt = sigma_down - sigma_cur
-            noise = torch.randn_like(x) * s_noise * sigma_up if sigma_up > 0 else 0
+            noise = torch.randn_like(x) * s_noise * sigma_up if sigma_up > 0 else torch.zeros_like(x)
             x = x + d * dt + noise
 
         if callback is not None:
@@ -117,8 +111,6 @@ def sample_flow(model, x, sigmas, extra_args=None, callback=None, disable=None,
 
 
 # ── Legacy fixed-solver variants (kept for backward compatibility) ───────────
-
-_SAMPLE_FLOW_IMPL = sample_flow  # reference for SAMPLER_FN_MAP['flow']
 
 @torch.no_grad()
 def sample_flow_heun(model, x, sigmas, extra_args=None, callback=None, disable=None,
@@ -165,7 +157,6 @@ def sample_flow_euler(model, x, sigmas, extra_args=None, callback=None, disable=
 
 
 SAMPLER_FN_MAP = {
-    'default': sample_flow,
     'flow': sample_flow,
     'heun': sample_flow_heun,
     'euler': sample_flow_euler,
@@ -185,7 +176,7 @@ class FlowSampler:
         self.s_tmax = s_tmax
         self.s_noise = s_noise
 
-    def sample(self, denoiser_fn, latents, num_steps=None, sigma_min=None, sigma_max=None):
+    def sample(self, denoiser_fn, latents, num_steps=None, sigma_min=None, sigma_max=None, extra_args=None):
         schedule = self.schedule
         if num_steps is not None or sigma_min is not None or sigma_max is not None:
             schedule = FlowSigmaSchedule(
@@ -200,6 +191,8 @@ class FlowSampler:
         sampler_fn = SAMPLER_FN_MAP.get(self.solver, sample_flow)
         kwargs = {"s_churn": self.s_churn, "s_tmin": self.s_tmin,
                   "s_tmax": self.s_tmax, "s_noise": self.s_noise}
+        if extra_args is not None:
+            kwargs["extra_args"] = extra_args
         if self.solver in ("flow", "default"):
             kwargs["step_tiers"] = getattr(schedule, "step_tiers", None)
         return sampler_fn(denoiser_fn, latents, sigmas, **kwargs)

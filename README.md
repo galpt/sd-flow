@@ -8,7 +8,7 @@
 
 sd-flow adapts the **scx_flow** CPU scheduling algorithm — used in Linux kernel process scheduling — into a Stable Diffusion noise sampler.
 
-The original scx_flow uses a **budget-driven tier system** with **rotating dispatch** to guarantee every task gets fair CPU time. sd-flow applies the same budget logic to diffusion: each step's sigma transition accumulates a noise budget, and that budget determines whether the step gets a full Heun correction (high budget) or a fast Euler pass (low budget). The result is a sampler that allocates compute where the noise dynamics demand it most.
+The original scx_flow uses a **budget-driven tier system** with **rotating dispatch** to guarantee every task gets fair CPU time. sd-flow applies the same budget logic to diffusion: each step's sigma transition accumulates a noise budget, and that budget determines whether the step gets a DDIM step (high budget, deterministic, high quality) or an Euler Ancestral step (low budget, adds variety). The result is a sampler that allocates compute where the noise dynamics demand it most.
 
 ### Will this work for me?
 
@@ -93,13 +93,13 @@ Uses linear sigma spacing with per-step budget-tier labels. A "budget" is tracke
 
 **2. An adaptive ODE solver** (`FlowSampler`)
 
-The solver quality per step is determined by the flow budget tier: high-budget steps (PRIORITY/NORMAL) get Heun's 2nd order correction, while low-budget steps (LOW/DEFICIT) use faster Euler. This mirrors scx_flow's variable time-slice allocation. The solver also appears as `flow` in every built-in KSampler's sampler dropdown — no manual wiring needed.
+The solver per step is determined by the flow budget tier: high-budget steps (PRIORITY/NORMAL) get DDIM (deterministic, high quality at low step count), while low-budget steps (LOW/DEFICIT) use Euler Ancestral (adds variety). This mirrors scx_flow's variable time-slice allocation. The solver also appears as `flow` in every built-in KSampler's sampler dropdown — no manual wiring needed.
 
 ### What's different from standard samplers?
 
 | Aspect | Euler / Heun / DDIM | sd-flow `flow` sampler |
 |--------|---------------------|------------------------|
-| Solver behavior | Same for every step | Adaptive per budget tier (PRIORITY→Heun, DEFICIT→Euler) |
+| Solver behavior | Same for every step | Adaptive per budget tier (PRIORITY→DDIM, DEFICIT→Euler Ancestral) |
 | Sigma schedule | Fixed formula (Karras, Normal, etc.) | Linear spacing + budget-tier labeling |
 | Control | Algorithm choice only | Budget thresholds + tier classification |
 | Starvation protection | None | Every tier gets ≥1 correction step |

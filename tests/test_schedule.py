@@ -103,7 +103,7 @@ class TestFlowSigmaScheduleCustomRange:
         sigmas = sched.generate_schedule()
         assert sigmas[-1].item() == pytest.approx(0.0)
         # The second-to-last should be approximately sigma_min
-        # (Karras polynomial may produce values slightly below sigma_min)
+        # (linear schedule should be within float32 precision of sigma_min)
         assert sigmas[-2].item() == pytest.approx(0.1, abs=1e-3)
 
     def test_custom_both(self):

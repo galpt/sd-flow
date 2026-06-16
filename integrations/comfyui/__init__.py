@@ -6,8 +6,8 @@ the ``flow`` sampler appears in every built-in KSampler's sampler dropdown --
 no workflow changes needed.
 
 The ``flow`` sampler is a full adaptation of scx_flow's budget-driven
-scheduling: each step's ODE solver quality is determined by its budget tier
-(PRIORITY→Heun correction, DEFICIT→Fast Euler), mirroring scx_flow's
+scheduling: each step's solver is determined by its budget tier
+(PRIORITY→DDIM, DEFICIT→Euler Ancestral), mirroring scx_flow's
 variable time-slice allocation.
 """
 

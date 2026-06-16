@@ -152,8 +152,8 @@ class TestSamplerFnMap:
         assert 'flow' in SAMPLER_FN_MAP
         assert SAMPLER_FN_MAP['flow'] is sample_flow
 
-    def test_has_four_entries(self):
-        assert len(SAMPLER_FN_MAP) == 4
+    def test_has_three_entries(self):
+        assert len(SAMPLER_FN_MAP) == 3
 
     def test_values_are_callable(self):
         for name, fn in SAMPLER_FN_MAP.items():
@@ -288,7 +288,7 @@ class TestFlowSamplerIntegration:
 
     @torch.no_grad()
     def test_flow_sampler_sample_heun(self):
-        """FlowSampler.sample() with heun solver (default)."""
+        """FlowSampler.sample() with default adaptive flow solver."""
         def dummy_denoiser(x, sigma, **kwargs):
             return x * 0.5
         sampler = FlowSampler()

@@ -19,7 +19,7 @@ class FlowSigmaSchedule:
     Uses clean linear sigma spacing (same as ComfyUI's "Normal" scheduler).
     Per-step tier indices are computed from budget accumulation and stored
     in ``self.step_tiers``.  These tiers are consumed by the adaptive
-    ``flow`` sampler to decide which steps get Heun correction vs Euler.
+    ``flow`` sampler to decide which steps get DDIM vs Euler Ancestral.
 
     The schedule is a ``torch.Tensor`` of shape ``(num_steps + 1,)``
     with values descending from ``sigma_max`` to ``0``, compatible
@@ -82,13 +82,14 @@ class FlowSigmaSchedule:
 
         # --- 3. ensure every viable tier has at least 1 correction step ---
         segments = segment_sigma_range(smin, smax)
-        for ti in range(4):
+        for ti in reversed(range(4)):  # lowest priority first
             if ti not in self.step_tiers:
                 seg_lo = segments[ti][1]
                 seg_hi = segments[ti][2]
                 if seg_hi - seg_lo > 1e-6:
-                    for i in range(len(self.step_tiers) - 1, -1, -1):
-                        if self.step_tiers[i] < ti:
+                    # Find a step from another tier and reassign it.
+                    for i in range(len(self.step_tiers)):
+                        if self.step_tiers[i] != ti:
                             self.step_tiers[i] = ti
                             break
 

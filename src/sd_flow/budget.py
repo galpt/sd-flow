@@ -19,7 +19,7 @@ class BudgetAccumulator:
         self.budget_min = budget_min
         self.tier_thresholds = tier_thresholds  # (priority, normal, low)
 
-    _REFILL_SCALE = 4.0  # scales refill so cumulative budget spans [0, BUDGET_MAX]
+    _REFILL_SCALE = 4.0  # scales refill so cumulative budget spans [0, budget_max]
 
     def refill(self, delta_sigma, sigma_cur, sigma_max, weight=1.0):
         """

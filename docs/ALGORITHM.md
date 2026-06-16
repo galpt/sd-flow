@@ -104,11 +104,11 @@ Large sigma drops at high noise levels generate the most budget — early denois
 Each timestep is classified by its budget:
 
 | Tier | Budget | Effect on ODE Solver |
-|---|---|---|
-| PRIORITY | ≥ 1.5 | Full Heun correction (2 NFEs) |
-| NORMAL | ≥ 1.0 | Full Heun correction (2 NFEs) |
-| LOW | ≥ 0.5 | Euler prediction only (1 NFE) |
-| DEFICIT | < 0.5 | Fast Euler, no noise injection (1 NFE) |
+|---|---|---|---|
+| PRIORITY | ≥ 1.5 | DDIM step (1 NFE, deterministic) |
+| NORMAL | ≥ 1.0 | DDIM step (1 NFE, deterministic) |
+| LOW | ≥ 0.5 | Euler Ancestral (1 NFE + noise) |
+| DEFICIT | < 0.5 | Euler Ancestral (1 NFE + noise) |
 
 ### Per-Step Tier Labels (Not Rotating Dispatch)
 
@@ -116,7 +116,7 @@ The rotating dispatch concept from scx_flow determines which TIER of task runs n
 
 1. Each sigma transition `σ_i → σ_{i+1}` generates a budget refill proportional to the sigma drop
 2. The cumulative budget determines the step's tier (PRIORITY/NORMAL/LOW/DEFICIT)
-3. Higher-budget steps receive Heun correction; lower-budget steps use faster Euler
+3. Higher-budget steps use DDIM (deterministic); lower-budget steps use Euler Ancestral (adds noise)
 4. If any tier has zero steps (no step accumulated enough budget), the highest-budget step is demoted to that tier to ensure no sigma range is entirely starved of correction
 
 ### Schedule Generation
@@ -143,7 +143,7 @@ Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
 | Property | Karras / Normal | Flow Schedule |
 |---|---|---|
 | Sigma spacing | Karras (polynomial) or Normal (linear) | Linear (same as Normal) |
-| Step behavior | Same solver for every step | Adaptive: PRIORITY steps get Heun, DEFICIT steps get Euler |
+| Step behavior | Same solver for every step | Adaptive: PRIORITY steps get DDIM, DEFICIT steps get Euler Ancestral |
 | Control mechanism | Single parameter `ρ` (Karras) or none (Normal) | Budget thresholds + tier classification |
 | Fairness guarantee | None | Every tier gets at least 1 correction step |
 | Determinism | Yes | Yes |
@@ -165,9 +165,9 @@ Output: torch.Tensor [sigma_max, ..., sigma_min, 0]
 
 | Preset | Priority | Normal | Low | Effect |
 |---|---|---|---|---|
-| Default | 1.5 | 1.0 | 0.5 | Balanced correction distribution |
-| Aggressive | 2.0 | 1.5 | 1.0 | Fewer correction steps (higher bar for Heun) |
-| Gentle | 1.2 | 0.8 | 0.4 | More correction steps (lower bar for Heun) |
+| Default | 1.5 | 1.0 | 0.5 | Balanced DDIM vs Euler Ancestral split |
+| Aggressive | 2.0 | 1.5 | 1.0 | More Euler Ancestral steps (higher bar for DDIM) |
+| Gentle | 1.2 | 0.8 | 0.4 | More DDIM steps (lower bar for DDIM) |
 
 ---
 

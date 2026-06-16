@@ -45,7 +45,7 @@ And check the error message. Open an issue with the full traceback.
 
 ### "Images look different from what I expected"
 
-**That's expected.** The `flow` sampler uses an adaptive solver per step — some steps receive full Heun correction while others use faster Euler. This produces a different result from fixed-solver samplers.
+**That's expected.** The `flow` sampler uses an adaptive solver per step — high-budget steps get DDIM (deterministic) while low-budget steps get Euler Ancestral (adds variety). This produces a different result from fixed-solver samplers.
 
 Try switching between tier threshold presets on the `FlowSigmaSchedule` node:
 - **Default**: Balanced correction distribution
@@ -54,7 +54,7 @@ Try switching between tier threshold presets on the `FlowSigmaSchedule` node:
 
 ### "Images look blurry / lack detail"
 
-The `flow` sampler uses Euler for LOW/DEFICIT budget tiers (fewer corrections), which may produce slightly softer results at very low step counts.
+The `flow` sampler uses Euler Ancestral for LOW/DEFICIT budget tiers (adds noise for variety), which may produce slightly different results compared to a purely deterministic sampler at very low step counts.
 
 Try:
 1. Increase `num_steps` (e.g., 25–30 instead of 18)

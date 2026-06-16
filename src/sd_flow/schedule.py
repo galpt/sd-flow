@@ -1,16 +1,11 @@
 """
 Flow-based sigma schedule generator.
 
-Adapts the scx_flow budget-and-tier concept to sigma spacing.
-Unlike fixed-formula schedules (Karras, Normal), the flow schedule
-uses BUDGET-DRIVEN WARPING: steps in high-budget tiers (PRIORITY)
-are packed closer together (more resolution), while steps in
-low-budget tiers (DEFICIT) are spread wider.  The warping is
-smooth and produces a clean, monotonic sigma sequence without
-boundary artifacts.
-
-Per-step tier indices are stored in ``step_tiers`` for the
-adaptive sampler.
+Adapts the scx_flow budget-and-tier concept to solver step correction.
+The sigma schedule uses clean linear spacing (same as ComfyUI's "Normal"
+scheduler).  Per-step tier indices are computed from budget accumulation
+and stored in ``step_tiers`` for the adaptive sampler, which is where the
+flow algorithm's budget/tier/dispatch logic takes effect.
 """
 
 import torch
@@ -21,21 +16,19 @@ from .tiers import segment_sigma_range
 
 class FlowSigmaSchedule:
     """
-    A sigma schedule based on the flow budget algorithm.
+    A sigma schedule for the flow sampler.
 
-    Uses budget-driven step WARPING: each step's tier determines a
-    stretch factor that compresses (PRIORITY) or expands (DEFICIT)
-    the sigma spacing.  This produces more resolution where the
-    noise dynamics demand it, without introducing artifacts.
+    Uses clean linear sigma spacing (same as ComfyUI's "Normal" scheduler)
+    to avoid the artifacts associated with non-uniform spacing.  Per-step
+    tier indices are computed from budget accumulation and stored in
+    ``self.step_tiers``.  These tiers are consumed by the adaptive
+    ``flow`` sampler to decide which steps get Heun correction vs Euler.
 
     The schedule is a ``torch.Tensor`` of shape ``(num_steps + 1,)``
     with values descending from ``sigma_max`` to ``0``, compatible
     with ComfyUI's ``SamplerCustomAdvanced`` and k-diffusion sampler
     signatures.
     """
-
-    # Stretch factors per tier: <1 = denser steps, >1 = sparser steps
-    _TIER_STRETCH = {0: 0.55, 1: 0.75, 2: 1.25, 3: 1.45}
 
     def __init__(
         self,
@@ -76,17 +69,12 @@ class FlowSigmaSchedule:
 
     def generate_schedule(self) -> torch.Tensor:
         """
-        Generate the flow-based sigma schedule.
+        Generate the sigma schedule.
 
-        Algorithm:
-          1. Build a linear reference schedule for budget computation.
-          2. Compute per-step budget and tier for each transition.
-          3. Ensure every viable tier has at least 1 correction step.
-          4. For num_steps < 2, return early (no warping needed).
-          5. Map each step's tier to a stretch factor.
-          6. Cumulatively sum stretches to get warped step positions.
-          7. Normalise positions and map to sigma values.
-          8. Append the trailing 0.
+        The schedule uses linear sigma spacing (matching ComfyUI's
+        "Normal" scheduler).  Per-step tier indices are computed
+        from budget accumulation and stored in ``self.step_tiers``
+        for the adaptive sampler.
 
         Returns:
             torch.Tensor of shape ``(num_steps + 1,)``:
@@ -96,7 +84,7 @@ class FlowSigmaSchedule:
         smin = self.sigma_min
         smax = self.sigma_max
 
-        # --- 1. linear reference schedule for budget computation ---
+        # --- 1. linear sigma schedule ---
         base = torch.linspace(smax, smin, num, dtype=torch.float32)
 
         # --- 2. compute per-step tiers from budget accumulation ---
@@ -114,38 +102,7 @@ class FlowSigmaSchedule:
                             self.step_tiers[i] = ti
                             break
 
-        # --- 4. for num_steps < 2, no warping is needed ---
-        if num < 2:
-            sigmas = torch.tensor([smax, 0.0], dtype=torch.float32)
-            self.step_tiers = [3]  # deficit
-            return sigmas
-
-        # --- 5. map tiers to stretch factors ---
-        stretch = torch.tensor(
-            [self._TIER_STRETCH[t] for t in self.step_tiers],
-            dtype=torch.float32,
-        )
-
-        # --- 6. compute warped positions ---
-        # Cumulative stretch gives the relative position of each step.
-        # A step with a high stretch (DEFICIT) covers more sigma range;
-        # a step with a low stretch (PRIORITY) covers less.
-        cum_stretch = torch.cat([
-            torch.zeros(1, dtype=torch.float32),
-            stretch.cumsum(0),
-        ])
-        total = float(cum_stretch[-1])
-        if total > 0:
-            positions = cum_stretch / total
-        else:
-            positions = torch.linspace(0, 1, num + 1, dtype=torch.float32)
-
-        # --- 7. map positions back to sigma values ---
-        sigmas = smax + positions * (smin - smax)
-        sigmas[0] = smax
-        sigmas[-1] = smin
-
-        # --- 8. append trailing 0 ---
-        sigmas = torch.cat([sigmas, torch.zeros(1)])
+        # --- 4. append trailing 0 ---
+        sigmas = torch.cat([base, torch.zeros(1)])
 
         return sigmas

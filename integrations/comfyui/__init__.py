@@ -1,14 +1,18 @@
 """
-sd-flow: Flow Sampler custom node pack for ComfyUI.
+sd-flow: Flow Sampler + Flow Scheduler custom node pack for ComfyUI.
 
-At load time, this module monkey-patches ComfyUI's sampler registry so that
-the ``flow`` sampler appears in every built-in KSampler's sampler dropdown --
-no workflow changes needed.
+At load time, this module monkey-patches ComfyUI's sampler AND scheduler
+registries so that ``sampler=flow`` and ``scheduler=flow`` appear in
+every built-in KSampler's dropdowns -- no workflow changes needed.
 
 The ``flow`` sampler is a full adaptation of scx_flow's budget-driven
 scheduling: each step's solver is determined by its budget tier
 (PRIORITY→DDIM, DEFICIT→Euler Ancestral), mirroring scx_flow's
 variable time-slice allocation.
+
+The ``flow`` scheduler uses linear sigma spacing with per-step
+budget-tier labels.  Combined with ``sampler=flow`` it delivers the
+complete flow scheduling pipeline.
 """
 
 import logging
@@ -50,8 +54,29 @@ try:
             _samplers.SAMPLER_NAMES.append(_name)
 
     _sd_flow_logger.info("Registered 'flow' sampler in KSampler dropdowns")
+
+    # ── 4. Register the flow sigma schedule in the scheduler dropdown ──
+    #    Uses clean linear sigma spacing (same as Normal).  The per-step
+    #    tier labels are consumed by the adaptive flow sampler when
+    #    sampler=flow + scheduler=flow is selected.
+    import torch as _torch
+    from sd_flow.schedule import FlowSigmaSchedule as _FlowSigmaSchedule
+
+    def _get_sigmas_flow(n: int, sigma_min: float, sigma_max: float) -> _torch.Tensor:
+        """Handler function for the flow sigma schedule (use_ms=False)."""
+        _sched = _FlowSigmaSchedule(num_steps=n, sigma_min=sigma_min, sigma_max=sigma_max)
+        return _sched.generate_schedule().to(_torch.float32)
+
+    _samplers.SCHEDULER_HANDLERS["flow"] = _samplers.SchedulerHandler(
+        handler=_get_sigmas_flow, use_ms=False,
+    )
+    # Append to SCHEDULER_NAMES in-place (same identity pattern as SAMPLER_NAMES).
+    if "flow" not in _samplers.SCHEDULER_NAMES:
+        _samplers.SCHEDULER_NAMES.append("flow")
+
+    _sd_flow_logger.info("Registered 'flow' scheduler in KSampler scheduler dropdown")
 except Exception as _exc:
-    _sd_flow_logger.warning("Failed to patch KSampler dropdowns: %s", _exc)
+    _sd_flow_logger.warning("Failed to patch KSampler: %s", _exc)
 
 # ── Standalone nodes (for SamplerCustomAdvanced workflow) ────────────────
 # Use absolute imports because ComfyUI loads __init__.py with a mangled
